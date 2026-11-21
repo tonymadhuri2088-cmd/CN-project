@@ -23,8 +23,8 @@ evidence is enough (or a test budget is hit).
 | Testing | pytest, 206 tests, fake LLM client (`tests/fake_client.py`), dry-run stub so the whole pipeline runs with zero API spend | Built |
 | Console commands | `netwing` (experiments) and `netwing-ui` (web UI) installed by `pip install -e .`; also runnable as `python -m netwing.demo` / `python -m netwing.webui` | Built, install tested in a clean virtualenv |
 | Lint | ruff (optional: `pip install -e ".[lint]"`; pyflakes and syntax checks in `pyproject.toml`), `requirements.txt` / `requirements-dev.txt` | Built, passes |
-| Continuous integration | GitHub Actions (`.github/workflows/ci.yml`): lint, 206 tests and a dry-run of the pipeline on Python 3.10-3.13, no API key needed | First run (commit 954b850) passed on Python 3.10-3.13; the Docker build and a smoke test of the UI image were added after that and have not run yet |
-| Containerisation | `Dockerfile` for the web UI (history, reports, simulator runs) | Written; CI builds it and checks the UI answers from inside the container (first CI run pending); real Kathara/netns labs are not containerised |
+| Continuous integration | GitHub Actions (`.github/workflows/ci.yml`): lint, 206 tests and a dry-run of the pipeline on Python 3.10-3.13, no API key needed | Passed on Python 3.10-3.13, including the Docker build and a smoke test of the UI image (runs #1 and #2) |
+| Containerisation | `Dockerfile` for the web UI (history, reports, simulator runs) | Built and smoke-tested in CI (the UI answers from inside the container); real Kathara/netns labs are not containerised |
 | Lab automation | Bash setup scripts (`setup_linux.sh`, `run_real_lab.sh`), fault-injection script (`labs/inject.sh`) | Built |
 
 ### Mini Project 2 layer (built; does not change diagnosis behaviour)
@@ -37,6 +37,7 @@ evidence is enough (or a test budget is hit).
 | Report export (problem, tests, observations, root cause, evidence, limitations, recommendations) | Standalone HTML (`netwing/report.py`) and a native PDF writer with no third-party library (`netwing/pdfexport.py`; `?format=pdf` on the report URL, a button on each run page) | Built |
 | Evidence assurance: Confirmed / Suspected / Inconclusive per investigation | `Controller.assess` (read-only: replays the recorded tests through the controller's own rules); shown on the run page, HTML report and PDF. Older logs without recorded test categories are shown as "not assessed" | Built |
 | Opt-in "inconclusive" answer | `--allow-inconclusive` adds an `inconclusive` verdict (gated: at least 3 tests, and not allowed when a confirmed fault or a fully passing network stands). Off by default, so every published result is unchanged. Scored as no answer, never as a false alarm | Built, not yet evaluated with the real model |
+| Opt-in citation helpers | `--guide-citations` (a rejection names the citable failing ids) and `--auto-cite` (accept a fault claim backed by standing failures in the matching area even if the model cites other ids; still needs reproduction, all areas tried, existing ids and relevance). Both off by default, so every published result is unchanged | `--guide-citations` built and measured (did not help); `--auto-cite` measured: simulator hard suite kept 0% false alarms, and on the real network it removed netwing's no-answers (see results below) |
 | Web UI: history, investigation detail, compare, simulation lab with ground truth | Python stdlib `http.server`, `netwing/webui.py`, no extra dependencies | Built |
 
 Run the UI: `python -m netwing.webui --results results --port 8765`, then open http://127.0.0.1:8765
@@ -46,7 +47,7 @@ Run the UI: `python -m netwing.webui --results results --port 8765`, then open h
 `python -m netwing.demo --backend sim --suite lab --repeats 3 --cap 3` runs four extra scenarios with ground truth: `lab_high_latency`, `lab_packet_loss`, `lab_misleading_dns` (ticket says the server is down; the real fault is DNS), `lab_misleading_healthy`. Only these scenarios offer `high_latency` and `packet_loss` as answers; the experiment suites keep exactly the same tools and prompts. `--suite all` does not include the lab.
 
 ### Planned (not built yet)
-Lab scenarios on the real Kathara/netns backends; evaluating `--allow-inconclusive` with the real model; a second model; 30+ repeats and held-out scenarios; building and testing the Docker image locally (CI now builds it).
+Lab scenarios on the real Kathara/netns backends; evaluating `--allow-inconclusive` with the real model; confirming `--auto-cite` on held-out scenarios and more repeats; a second model; 30+ repeats and held-out scenarios; building and testing the Docker image locally (CI now builds it).
 
 ### Lab suite results (Haiku 5.5, simulated, 12 runs per mode, 21 Nov 2026)
 | Mode | Correct [95% CI] | False alarms | Mean tests | Mean cost |
@@ -149,3 +150,21 @@ then `sudo env "PATH=$PATH" ANTHROPIC_API_KEY=... python -m netwing.demo --backe
 It builds the lab as Linux network namespaces and runs the lab's own startup scripts; the kernel does the routing,
 firewalling and DNS. Check that it agrees with the simulator: `sudo NETWING_REAL_LAB=1 python -m pytest tests/test_netns_parity.py -q`.
 This does not test Kathara or its Docker image. Only the `easy` suite has a real lab so far.
+
+### Real-network results (easy suite, 20 runs per mode, Claude Haiku 5.5, Linux namespaces)
+| Mode | Correct (95% CI) | False alarms | No answer | Mean tests |
+|---|---|---|---|---|
+| plain | 100% | 0% | 0 | 7.4 |
+| healthy_ok | 95% | 20% (1 of 5 healthy runs) | 0 | 7.0 |
+| netwing | 90% [70-97] | 0% | 2 | 5.6 +/- 0.7 |
+
+Solid claim: about 24% fewer tests with netwing, intervals not overlapping. Accuracy differences are not separable at this sample size, and 5 healthy runs per mode are too few for false-alarm claims. Finding: netwing's no-answers come from the controller rejecting correct diagnoses when the model cites exclusion evidence (passing tests or another area's failure). With `--guide-citations` this got worse (75% correct, 5 no-answers), so `--auto-cite` was added.
+
+With `--auto-cite` (same real network, easy suite, 20 runs per mode; log `results/run-20261121-202321.jsonl`):
+| Mode | Correct (95% CI) | False alarms | No answer | Mean tests |
+|---|---|---|---|---|
+| plain | 100% [84-100] | 0% | 0 | 7.2 +/- 0.7 |
+| healthy_ok | 95% [76-99] | 20% (1 of 5 healthy runs) | 0 | 7.3 +/- 0.9 |
+| netwing `--auto-cite` | 100% [84-100] | 0% | 0 | 5.3 +/- 0.6 |
+
+netwing's no-answers fell from 2 to 0 and it used about 26% fewer tests than plain. Safety check on the simulator hard suite (12 runs per mode): netwing 100% correct, 0% false alarms, 8.3 tests, same as the published run. Caveats: the flag was designed after seeing these failures on the same suite, n=20, and only 5 healthy runs per mode, so the false-alarm interval is wide. It stays opt-in; the published default tables are unchanged.
