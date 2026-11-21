@@ -1,0 +1,12 @@
+__pycache__/
+*.pyc
+.pytest_cache/
+.superpowers/
+results/*.jsonl
+labs/dns_failure/
+labs/route_failure/
+labs/port_blocked/
+labs/healthy_false_alarm/
+*.tar.gz
+netwing.egg-info/
+.env

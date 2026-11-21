@@ -1,0 +1,6 @@
+ip addr add 10.0.1.53/24 dev eth0
+ip route add default via 10.0.1.1
+# dnsmasq answers web.lab -> 10.0.2.10 (installed here if the image lacks it)
+which dnsmasq >/dev/null 2>&1 || (apt-get update -qq && apt-get install -y -qq dnsmasq)
+echo "address=/web.lab/10.0.2.10" > /etc/dnsmasq.d/netwing.conf
+[ -e /etc/netwing-no-dns ] || dnsmasq --no-daemon --conf-file=/etc/dnsmasq.d/netwing.conf --no-resolv &

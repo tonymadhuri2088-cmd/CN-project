@@ -1,0 +1,5 @@
+{
+  "_note": "USD per million tokens, from https://platform.claude.com/docs/en/about-claude/pricing as read on 2026-11-20 (Haiku 5.5 uses the tier for prompts up to 100k tokens, which all demo prompts are). Re-check the page before a paper run; prices change.",
+  "claude-haiku-5-5": {"input_per_mtok": 0.10, "output_per_mtok": 0.50},
+  "claude-sonnet-5-5": {"input_per_mtok": 2.00, "output_per_mtok": 10.00}
+}

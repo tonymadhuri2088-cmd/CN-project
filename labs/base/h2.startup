@@ -1,0 +1,4 @@
+ip addr add 10.0.2.10/24 dev eth0
+ip route add default via 10.0.2.1
+# tiny web service on TCP 80 (netcat loop)
+(while true; do echo -e "HTTP/1.0 200 OK\r\n\r\nhello" | nc -l -p 80 -q 1 >/dev/null 2>&1; done) &
