@@ -2,9 +2,10 @@
 # Runs the demo against the REAL Linux network (namespaces). Asks for your API key (hidden, never saved).
 # Usage:  bash run_real_lab.sh            (3 repeats, $3 cap)
 #         bash run_real_lab.sh 10 5       (10 repeats, $5 cap)
+#         bash run_real_lab.sh 5 3 --guide-citations   (extra flags are passed to netwing.demo)
 set -euo pipefail
 cd "$(dirname "$0")"
-REPEATS="${1:-3}"; CAP="${2:-3}"
+REPEATS="${1:-3}"; CAP="${2:-3}"; shift $(( $# > 2 ? 2 : $# ))
 [ -d .venv ] || { echo "Run  bash setup_linux.sh  first."; exit 1; }
 # shellcheck disable=SC1091
 . .venv/bin/activate
@@ -13,4 +14,4 @@ if [ -z "${ANTHROPIC_API_KEY:-}" ]; then
 fi
 SUDO=""; [ "$(id -u)" -ne 0 ] && SUDO="sudo"
 $SUDO env "PATH=$PATH" ANTHROPIC_API_KEY="$ANTHROPIC_API_KEY" \
-  python -m netwing.demo --backend netns --suite easy --repeats "$REPEATS" --cap "$CAP"
+  python -m netwing.demo --backend netns --suite easy --repeats "$REPEATS" --cap "$CAP" "$@"

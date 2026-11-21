@@ -31,8 +31,12 @@ _ID = re.compile(r"\bE\d+\b")
 
 
 class Controller:
-    def __init__(self, max_tests: int = 8, subject=None):
+    def __init__(self, max_tests: int = 8, subject=None, guide_citations: bool = False, auto_cite: bool = False):
         self.max_tests = max_tests
+        self.guide_citations = guide_citations  # opt-in: a rejected fault claim names the ids it could cite
+        # opt-in: judge a fault claim by the evidence the run gathered, not by which ids the model happened to cite.
+        # A standing failure in the matching area must still exist, be reproduced, and all areas must be tried.
+        self.auto_cite = auto_cite
         self.subject = subject  # None: every result is relevant
         self._results: dict[str, ToolResult] = {}
         self._order: list[str] = []
@@ -182,6 +186,11 @@ class Controller:
             cited_failing = [
                 e for e, r in failures if e in evidence_ids and r.category in needed
             ]
+            if not cited_failing and self.auto_cite:
+                standing = [e for e, r in failures if r.category in needed]
+                if standing:
+                    cited_failing = standing
+                    evidence_ids = list(evidence_ids) + standing
             if not cited_failing:
                 unrelated = [
                     e for e in evidence_ids
@@ -192,6 +201,17 @@ class Controller:
                         f"The failures you cite ({', '.join(unrelated)}) are not about the ticket's target, so they "
                         "do not count as evidence of a fault. If every check on the ticket's target passed, "
                         "answer healthy; otherwise cite a failing result on the target itself."
+                    )
+                if self.guide_citations:
+                    options = [e for e, r in failures if r.category in needed]
+                    if options:
+                        return False, (
+                            f"None of the results you cited is a failing check in the area of {fault_type}. "
+                            f"The failing results of that kind so far are {', '.join(options)}: cite one of them as evidence."
+                        )
+                    return False, (
+                        f"No failing check in the area of {fault_type} exists yet, and passing results cannot prove a fault. "
+                        "Run the check that would show it, or pick the fault type your failing results point to."
                     )
                 return False, (
                     "A fault claim needs a failing test as evidence in the matching area. "

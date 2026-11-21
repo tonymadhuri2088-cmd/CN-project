@@ -36,6 +36,12 @@ def build_parser():
     p.add_argument("--allow-inconclusive", action="store_true",
                    help="let the model answer 'inconclusive' when the evidence conflicts or is insufficient "
                         "(off by default so the published results stay comparable)")
+    p.add_argument("--guide-citations", action="store_true",
+                   help="netwing mode only: when a fault claim is rejected for citing the wrong results, the message "
+                        "names the failing results it could cite (off by default; the published tables used the plain message)")
+    p.add_argument("--auto-cite", action="store_true",
+                   help="netwing mode only: judge a fault claim by the failing evidence the run gathered, not by "
+                        "which result ids the model cited (off by default; the published tables used the strict rule)")
     p.add_argument("--out", default=None)
     return p
 
@@ -100,6 +106,7 @@ def main(argv=None) -> int:
     logs = run_matrix(
         _scenario_ids(args), args.modes, args.repeats, _backend_factory(args), client, guard, model, out,
         inventory=args.inventory, allow_inconclusive=args.allow_inconclusive,
+        guide_citations=args.guide_citations, auto_cite=args.auto_cite,
     )
     print(summarize(logs, simulated=args.backend == "sim", dry_run=args.dry_run))
     print(f"\nlogs: {out}   total spend: ${guard.spent_total:.4f} (cap ${args.cap:.2f})")

@@ -184,12 +184,14 @@ def run_diagnosis(
     max_tests: int,
     inventory: bool = False,
     allow_inconclusive: bool = False,
+    guide_citations: bool = False,
+    auto_cite: bool = False,
 ) -> RunLog:
     if mode not in MODES:
         raise ValueError(f"unknown mode {mode!r}; expected one of {MODES}")
     guard.start_run()
     log = RunLog(scenario_id=scenario.id, mode=mode, model=model)
-    ctrl = Controller(max_tests=max_tests, subject=scenario.subject)  # ids + counting in every mode; gating only in netwing
+    ctrl = Controller(max_tests=max_tests, subject=scenario.subject, guide_citations=guide_citations, auto_cite=auto_cite)  # ids + counting in every mode; gating only in netwing
     gated = mode == "netwing"
     messages = [{"role": "user", "content": scenario.ticket}]
     forced = False

@@ -25,6 +25,8 @@ def run_matrix(
     out_path: str,
     inventory: bool = False,
     allow_inconclusive: bool = False,
+    guide_citations: bool = False,
+    auto_cite: bool = False,
 ) -> list[RunLog]:
     logs: list[RunLog] = []
     with open(out_path, "a", encoding="utf-8") as out:
@@ -33,7 +35,7 @@ def run_matrix(
                 scenario = get_scenario(sid)
                 for mode in modes:
                     backend = backend_factory(scenario)
-                    log = run_diagnosis(scenario, backend, mode, client, guard, model, MAX_TESTS[mode], inventory, allow_inconclusive)
+                    log = run_diagnosis(scenario, backend, mode, client, guard, model, MAX_TESTS[mode], inventory, allow_inconclusive, guide_citations, auto_cite)
                     logs.append(log)
                     rec = log.to_dict()
                     rec["score"] = asdict(score(scenario, log.answer))

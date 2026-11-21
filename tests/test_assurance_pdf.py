@@ -168,3 +168,70 @@ def test_report_route_serves_pdf(tmp_path):
         assert "Evidence assurance" in page and "format=pdf" in page
     finally:
         srv.shutdown()
+
+
+def test_citation_guidance_is_off_by_default_and_names_ids_when_on():
+    tests = [DNS_FAIL, PING_OK, PORT_OK, DNS_FAIL]
+    plain = Controller(max_tests=12)
+    guided = Controller(max_tests=12, guide_citations=True)
+    for c in (plain, guided):
+        for t in tests:
+            c.observe(t)
+    ok_p, why_p = plain.allow_claim("fault", "dns_failure", ["E2", "E3"])
+    ok_g, why_g = guided.allow_claim("fault", "dns_failure", ["E2", "E3"])
+    assert not ok_p and not ok_g
+    assert "E1" not in why_p and "E4" not in why_p
+    assert "E1, E4" in why_g
+    # the acceptance rule itself is the same either way
+    assert plain.allow_claim("fault", "dns_failure", ["E1", "E4"]) == guided.allow_claim("fault", "dns_failure", ["E1", "E4"])
+
+
+def test_citation_guidance_when_no_failure_in_area_exists_yet():
+    c = Controller(max_tests=12, guide_citations=True)
+    c.observe(PING_OK)
+    ok, why = c.allow_claim("fault", "dns_failure", ["E1"])
+    assert not ok and "No failing check" in why
+
+
+def _real_net_dns_case(**kw):
+    c = Controller(max_tests=12, **kw)
+    for t in (DNS_FAIL, _r("ping", False, "dns", src="h1", dst="web.lab"), PING_OK, PORT_OK, DNS_FAIL):
+        c.observe(t)
+    return c
+
+
+def test_auto_cite_accepts_a_supported_claim_that_cites_only_passing_tests():
+    # the model's real mistake: right diagnosis, but it cites the passing tests E3 and E4
+    strict = _real_net_dns_case()
+    lenient = _real_net_dns_case(auto_cite=True)
+    assert not strict.allow_claim("fault", "dns_failure", ["E3", "E4"])[0]
+    assert lenient.allow_claim("fault", "dns_failure", ["E3", "E4"]) == (True, "")
+
+
+def test_auto_cite_still_rejects_unsupported_claims():
+    c = Controller(max_tests=12, auto_cite=True)
+    c.observe(PING_OK)
+    assert not c.allow_claim("fault", "dns_failure", ["E1"])[0]                       # no failure at all
+    c2 = _real_net_dns_case(auto_cite=True)
+    assert not c2.allow_claim("fault", "route_failure", ["E3"])[0]                    # failures are in a different area
+    assert not c2.allow_claim("fault", "dns_failure", ["E99"])[0]                     # invented evidence id
+
+
+def test_auto_cite_keeps_confirmation_and_coverage_rules():
+    once = Controller(max_tests=12, auto_cite=True)
+    for t in (DNS_FAIL, PING_OK, PORT_OK):
+        once.observe(t)
+    ok, why = once.allow_claim("fault", "dns_failure", ["E2"])
+    assert not ok and "once" in why                                                   # still needs a repeat
+    untried = Controller(max_tests=12, auto_cite=True)
+    for t in (DNS_FAIL, DNS_FAIL):
+        untried.observe(t)
+    assert not untried.allow_claim("fault", "dns_failure", ["E1"])[0]                 # still needs ping/port tried
+
+
+def test_auto_cite_ignores_unrelated_alert_failures():
+    sc = get_scenario("noisy_healthy")
+    c = Controller(max_tests=12, subject=sc.subject, auto_cite=True)
+    c.observe(ToolResult("ping", {"src": "h1", "dst": "printer.lab"}, "out", False, "connectivity"))
+    c.observe(ToolResult("ping", {"src": "h1", "dst": "printer.lab"}, "out", False, "connectivity"))
+    assert not c.allow_claim("fault", "route_failure", ["E1", "E2"])[0]
