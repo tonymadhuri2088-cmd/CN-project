@@ -6,6 +6,7 @@ netwing     healthy_ok prompt + the evidence Controller gating claims and stoppi
 """
 from __future__ import annotations
 
+import time
 from dataclasses import asdict, dataclass, field
 
 from .backend import NetworkBackend, ToolResult
@@ -109,6 +110,7 @@ class RunLog:
     rejected_claims: int = 0
     error: str | None = None
     transcript: list = field(default_factory=list)
+    tests: list = field(default_factory=list)  # structured per-test record (additive; used by the UI layer only)
 
     def to_dict(self) -> dict:
         return asdict(self)
@@ -224,6 +226,9 @@ def run_diagnosis(
                     continue
                 res = _execute(backend, u["name"], u["input"])
                 eid = ctrl.observe(res)
+                log.tests.append({"id": eid, "tool": res.tool, "args": dict(res.args), "output": res.output,
+                                  "ok": res.ok, "category": res.category, "evidence": res.evidence,
+                                  "ts": time.time()})
                 results.append(
                     {"type": "tool_result", "tool_use_id": u["id"], "content": f"[{eid}] {res.output}"}
                 )

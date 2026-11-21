@@ -1,4 +1,4 @@
-# NetWing: Sunday demo script (about 8 minutes)
+# NetWing: Monday 23 Nov demo script (about 8 minutes)
 
 Numbers are from the final code, Claude Haiku 5.5, simulated network (label every table "SIMULATED"). Full details are in the results log.
 

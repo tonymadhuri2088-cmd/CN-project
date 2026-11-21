@@ -20,18 +20,23 @@ evidence is enough (or a test budget is hit).
 | Experiment runner | `netwing/runner.py`: matrix of scenarios x modes x repeats, equal 12-test budget per mode, JSONL log per run | Built |
 | Statistics | 95% Wilson intervals (correct, false alarms, all faults found), mean +/- 1.96 SE for tests, cost per run | Built |
 | Cost control | Hard USD cap (`--cap`), per-model token prices in `netwing/pricing.json`, run marked INCOMPLETE if the cap would be passed | Built |
-| Testing | pytest, 170 tests, fake LLM client (`tests/fake_client.py`), dry-run stub so the whole pipeline runs with zero API spend | Built |
+| Testing | pytest, 178 tests, fake LLM client (`tests/fake_client.py`), dry-run stub so the whole pipeline runs with zero API spend | Built |
 | Lab automation | Bash setup scripts (`setup_linux.sh`, `run_real_lab.sh`), fault-injection script (`labs/inject.sh`) | Built |
 
-### Planned (Mini Project 2, not built yet)
-These are layers on top of the frozen controller; they will not change diagnosis behaviour.
+### Mini Project 2 layer (built; does not change diagnosis behaviour)
+| Layer | Technology | Status |
+|---|---|---|
+| Structured per-test record (tool, args, output, pass/fail, category, timestamp) | Additive `tests` field in the run log (`netwing/agent.py`); older logs are rebuilt from the transcript | Built |
+| Evidence explorer records | `netwing/records.py` | Built |
+| Network health score from measured values only (unmeasured indicators shown separately, never assumed healthy) | `netwing/health.py` | Built |
+| Persistent investigation history, filter and compare | SQLite (stdlib) in `netwing/history.py`, imports `results/run-*.jsonl` | Built |
+| Report export (problem, tests, observations, root cause, evidence, limitations, recommendations) | Standalone HTML in `netwing/report.py` (print to PDF from the browser) | Built |
+| Web UI: history, investigation detail, compare, simulation lab with ground truth | Python stdlib `http.server`, `netwing/webui.py`, no extra dependencies | Built |
 
-| Layer | Planned technology |
-|---|---|
-| Structured tool results with latency and timestamps | Extend the backend result record |
-| Evidence explorer, health score (measured values only), history store | Python data layer reading the JSONL logs |
-| Web UI and report export | Web front end over the same logs |
-| More scenarios (high latency, packet loss, misleading complaint) and an "inconclusive" verdict | New scenarios in `netwing/scenarios.py` |
+Run the UI: `python -m netwing.webui --results results --port 8765`, then open http://127.0.0.1:8765
+
+### Planned (not built yet)
+High-latency, packet-loss and misleading-complaint scenarios (need simulator and scoring changes, held until the experiment tables are final); an "inconclusive" verdict; latency and packet-loss numbers as structured measurements; running new investigations from the UI; PDF export without the browser.
 
 ## Architecture
 
@@ -72,7 +77,7 @@ Scenario suites: three real faults (`dns_failure`, `route_failure`, `port_blocke
 ## Run it (Windows, macOS or Linux; Python 3.10+)
 ```
 pip install -e ".[dev]"
-pytest                                   # 170 tests, no API needed
+pytest                                   # 178 tests, no API needed
 python -m netwing.demo --dry-run         # whole pipeline, zero API spend (stub client)
 ```
 Real model run on the **simulated** network (set the key in your shell, never in a file or chat):
