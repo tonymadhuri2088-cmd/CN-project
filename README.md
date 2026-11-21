@@ -36,8 +36,8 @@ evidence is enough (or a test budget is hit).
 | Persistent investigation history, filter and compare | SQLite (stdlib) in `netwing/history.py`, imports `results/run-*.jsonl` | Built |
 | Report export (problem, tests, observations, root cause, evidence, limitations, recommendations) | Standalone HTML (`netwing/report.py`) and a native PDF writer with no third-party library (`netwing/pdfexport.py`; `?format=pdf` on the report URL, a button on each run page) | Built |
 | Evidence assurance: Confirmed / Suspected / Inconclusive per investigation | `Controller.assess` (read-only: replays the recorded tests through the controller's own rules); shown on the run page, HTML report and PDF. Older logs without recorded test categories are shown as "not assessed" | Built |
-| Opt-in "inconclusive" answer | `--allow-inconclusive` adds an `inconclusive` verdict (gated: at least 3 tests, and not allowed when a confirmed fault or a fully passing network stands). Off by default, so every published result is unchanged. Scored as no answer, never as a false alarm | Built, not yet evaluated with the real model |
-| Opt-in citation helpers | `--guide-citations` (a rejection names the citable failing ids) and `--auto-cite` (accept a fault claim backed by standing failures in the matching area even if the model cites other ids; still needs reproduction, all areas tried, existing ids and relevance). Both off by default, so every published result is unchanged | `--guide-citations` built and measured (did not help); `--auto-cite` measured: simulator hard suite kept 0% false alarms, and on the real network it removed netwing's no-answers (see results below) |
+| Opt-in "inconclusive" answer | `--allow-inconclusive` adds an `inconclusive` verdict (gated: at least 3 tests, and not allowed when a confirmed fault or a fully passing network stands). Off by default, so every published result is unchanged. Scored as no answer, never as a false alarm | Built; one small real-model run (12 runs per mode on the hard suite) |
+| Opt-in citation helpers | `--guide-citations` (a rejection names the citable failing ids) and `--auto-cite` (accept a fault claim backed by standing failures in the matching area even if the model cites other ids; still needs reproduction, all areas tried, existing ids and relevance). Both off by default, so every published result is unchanged | `--guide-citations` built and measured (did not help); `--auto-cite` measured: on the simulator it kept netwing's results (hard 100% / 0% false alarms / 8.2 tests, flaky 100% / 0% / 9.3, multi 100% correct, 90% all faults found / 6.7 tests), and on the real network it removed netwing's no-answers (see results below). `--allow-inconclusive` measured on the hard suite (12 runs): netwing unchanged at 100% / 0% false alarms, baselines gave 1-2 no-answers |
 | Web UI: history, investigation detail, compare, simulation lab with ground truth | Python stdlib `http.server`, `netwing/webui.py`, no extra dependencies | Built |
 
 Run the UI: `python -m netwing.webui --results results --port 8765`, then open http://127.0.0.1:8765
@@ -47,7 +47,7 @@ Run the UI: `python -m netwing.webui --results results --port 8765`, then open h
 `python -m netwing.demo --backend sim --suite lab --repeats 3 --cap 3` runs four extra scenarios with ground truth: `lab_high_latency`, `lab_packet_loss`, `lab_misleading_dns` (ticket says the server is down; the real fault is DNS), `lab_misleading_healthy`. Only these scenarios offer `high_latency` and `packet_loss` as answers; the experiment suites keep exactly the same tools and prompts. `--suite all` does not include the lab.
 
 ### Planned (not built yet)
-Lab scenarios on the real Kathara/netns backends; evaluating `--allow-inconclusive` with the real model; confirming `--auto-cite` on held-out scenarios and more repeats; a second model; 30+ repeats and held-out scenarios; building and testing the Docker image locally (CI now builds it).
+Lab scenarios on the real Kathara/netns backends; confirming `--auto-cite` on held-out scenarios and more repeats; a second model; 30+ repeats and held-out scenarios; building and testing the Docker image locally (CI now builds it).
 
 ### Lab suite results (Haiku 5.5, simulated, 12 runs per mode, 21 Nov 2026)
 | Mode | Correct [95% CI] | False alarms | Mean tests | Mean cost |
@@ -142,6 +142,15 @@ a failure as evidence when it concerns the ticket's target (web.lab / 10.0.2.10 
 | `all` | everything |
 
 The summary shows 95% Wilson confidence intervals. Use `--repeats 10` or more for numbers you can quote.
+
+### Simulator safety check for `--auto-cite` (netwing mode, Haiku 5.5, `--cap 3`)
+| Suite | Runs | Correct [95% CI] | False alarms | No answer | Mean tests | Published default rules |
+|---|---|---|---|---|---|---|
+| Hard | 40 | 100% [91-100] | 0% [0-28] | 0 | 8.2 +/- 0.7 | 100%, 0%, 8.2 |
+| Flaky | 20 | 100% [84-100] | 0% [0-28] | 0 | 9.3 +/- 1.1 | 100%, 0%, 9.3 |
+| Multi | 20 | 100% [84-100] | n/a | 0 | 6.7 +/- 0.8 (all faults found 90% [70-97]) | 100%, 7.0 (95%) |
+
+The flag did not change the results beyond run-to-run noise (multi all-faults-found 90% vs 95% earlier is 18 vs 19 of 20 runs; netwing's own multi results have varied between 85% and 95%). Baselines moved between runs (e.g. plain flaky false alarms 40% now vs 70% before), which is why 30+ repeats are needed for baseline numbers.
 
 ## Real network, no Docker (Linux, root)
 
