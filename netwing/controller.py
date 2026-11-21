@@ -112,6 +112,37 @@ class Controller:
                 tried.add("port")
         return tried
 
+    # -- assurance (read-only; never changes a decision) ------------------
+    def assess(self, verdict, fault_type=None, evidence_ids=()) -> tuple[str, str]:
+        """How well the evidence backs an answer: ("confirmed" | "suspected" | "inconclusive", reason).
+
+        confirmed: a fault that was reproduced in its area with ping, DNS and port all tried, or a healthy
+        verdict with no standing failure and every area passing. suspected: the answer may be right but the
+        evidence does not meet that standard. inconclusive: there is no usable answer, or the tests conflict.
+        """
+        failures = self._failures()
+        if verdict == "inconclusive" or verdict not in ("fault", "healthy"):
+            return "inconclusive", "No conclusion was reached from the tests."
+        if verdict == "healthy":
+            passed = {r.category for _, r in self._valid() if r.ok}
+            if failures:
+                return "inconclusive", f"Called healthy, but {len(failures)} failure(s) still stand in the tests."
+            if _HEALTHY_NEEDS <= passed:
+                return "confirmed", "No failure stands and connectivity, DNS and port checks all passed."
+            miss = ", ".join(sorted(_HEALTHY_NEEDS - passed))
+            return "suspected", f"No failure was seen, but these areas never passed a check: {miss}."
+        needed = _FAULT_CATEGORIES.get(fault_type)
+        ids = {i for e in evidence_ids for i in _ID.findall(str(e))}
+        cited = [(e, r) for e, r in failures if r.category in (needed or ()) and (not ids or e in ids)]
+        if not cited:
+            return "suspected", "The answer cites no standing failure in the matching area."
+        if not self._reproduced(cited):
+            return "suspected", "The cited failure was seen only once, so it could be a transient blip."
+        missing = _HEALTHY_NEEDS - self._areas_tried()
+        if missing:
+            return "suspected", f"The fault repeated, but these areas were never tested: {', '.join(sorted(missing))}."
+        return "confirmed", "The failure repeated and ping, DNS and port were all tested."
+
     # -- decisions -------------------------------------------------------
     def decide(self) -> Verdict:
         valid = self._valid()
@@ -182,5 +213,14 @@ class Controller:
                     "server using its node name or IP address instead of the DNS name, so that a second fault "
                     "is not hidden behind the first."
                 )
+            return True, ""
+        if verdict == "inconclusive":
+            # Only offered when the run opts in (--allow-inconclusive). It must be an honest last resort.
+            if self.tests_run < min(3, self.max_tests):
+                return False, "Run at least three tests before saying the evidence is inconclusive."
+            if failures and self._reproduced(failures) and _HEALTHY_NEEDS <= self._areas_tried():
+                return False, "A confirmed failure stands; report it as a fault instead of inconclusive."
+            if not failures and _HEALTHY_NEEDS <= {r.category for _, r in self._valid() if r.ok}:
+                return False, "Every area passed and nothing failed; report the network as healthy instead."
             return True, ""
         return False, "verdict must be 'fault' or 'healthy'."

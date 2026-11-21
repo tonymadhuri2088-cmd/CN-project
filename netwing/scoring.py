@@ -14,9 +14,12 @@ class Score:
     false_alarm: bool
     no_answer: bool
     complete: bool = False  # found every injected fault (single-fault scenarios: same as correct)
+    inconclusive: bool = False  # the model honestly said the evidence is inconclusive (counted as no answer)
 
 
 def score(scenario: Scenario, answer: dict | None) -> Score:
+    if isinstance(answer, dict) and answer.get("verdict") == "inconclusive":
+        return Score(correct=False, false_alarm=False, no_answer=True, inconclusive=True)
     if (
         not isinstance(answer, dict)
         or answer.get("verdict") not in ("fault", "healthy")

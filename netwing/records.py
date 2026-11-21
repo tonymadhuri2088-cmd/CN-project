@@ -8,6 +8,9 @@ from __future__ import annotations
 
 import re
 
+from .backend import ToolResult
+from .controller import Controller
+
 _FAIL_PAT = re.compile(
     r"servfail|nxdomain|did not answer|filtered|no route|unreachable|100% loss|timed? ?out|refused|closed|\* \* \*",
     re.I,
@@ -54,6 +57,27 @@ def _ticket(transcript: list) -> str:
     return ""
 
 
+LEVEL_LABEL = {"confirmed": "Confirmed", "suspected": "Suspected", "inconclusive": "Inconclusive"}
+
+
+def _assurance(run: dict, tests: list, ans: dict, ev: list) -> dict | None:
+    """Confirmed / suspected / inconclusive, judged by replaying the recorded tests through the controller's
+    own rules. Needs the recorded test categories, so older logs (rebuilt from text) are not assessed."""
+    if any(t.get("category") is None for t in tests) or not tests:
+        return None
+    try:
+        from .scenarios import get_scenario
+        subject = get_scenario(run.get("scenario_id")).subject
+    except Exception:  # unknown scenario id: judge without a subject filter
+        subject = None
+    ctrl = Controller(max_tests=max(12, len(tests)), subject=subject)
+    for t in tests:
+        ctrl.observe(ToolResult(t["tool"], dict(t.get("args") or {}), str(t.get("output", "")), bool(t["ok"]),
+                                t["category"], t.get("evidence", True) is not False))
+    level, reason = ctrl.assess(ans.get("verdict"), ans.get("fault_type"), ev)
+    return {"level": level, "label": LEVEL_LABEL[level], "reason": reason}
+
+
 def build_record(run: dict, run_id: str) -> dict:
     structured = bool(run.get("tests"))
     tests = run["tests"] if structured else _tests_from_transcript(run.get("transcript", []))
@@ -81,6 +105,7 @@ def build_record(run: dict, run_id: str) -> dict:
         "claimed_evidence": ev,
         "score": run.get("score") or {},
         "tests": tests,
+        "assurance": _assurance(run, tests, ans, ev) if structured else None,
         "parsed_from_text": not structured,
         "error": run.get("error"),
     }

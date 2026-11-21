@@ -1,4 +1,4 @@
-"""Investigation report (standalone HTML; open in a browser and print to PDF for a PDF copy)."""
+"""Investigation report (standalone HTML; a native PDF copy is made by pdfexport.py)."""
 from __future__ import annotations
 
 from html import escape as e
@@ -59,12 +59,15 @@ def render_report(rec: dict) -> str:
     lim = "".join(f"<li>{e(x)}</li>" for x in _limitations(rec))
     score = "n/a" if health["score"] is None else f"{health['score']}/100 ({health['measured']} of {health['total']} indicators measured)"
     sim = "<span class='tag'>SIMULATED</span> " if rec["simulated"] else ""
+    asr = rec.get("assurance")
+    asr_html = (f"<p>Evidence assurance: <b>{e(asr['label'])}</b>. {e(asr['reason'])}</p>" if asr
+                else "<p>Evidence assurance: not assessed (older log).</p>")
     return (f"<!doctype html><meta charset='utf-8'><title>Report {e(rec['id'])}</title><style>{_CSS}</style>"
             f"<h1>{sim}Network investigation report</h1><p>Record <code>{e(rec['id'])}</code> · scenario "
             f"<code>{e(str(rec['scenario']))}</code> · mode <code>{e(str(rec['mode']))}</code> · model "
             f"<code>{e(str(rec['model']))}</code></p>"
             f"<h2>Problem</h2><p>{e(rec['ticket'])}</p>"
-            f"<h2>Root cause (diagnosis)</h2><p><b>{e(str(rec['verdict']))}</b>: {e(cause)}</p>"
+            f"<h2>Root cause (diagnosis)</h2><p><b>{e(str(rec['verdict']))}</b>: {e(cause)}</p>{asr_html}"
             f"<h2>Supporting evidence cited</h2><ul>{ev}</ul>"
             f"<h2>Tests performed and observations ({len(rec['tests'])})</h2>"
             f"<table><tr><th>Id</th><th>Tool</th><th>Arguments</th><th>Observation</th><th>Result</th></tr>{rows}</table>"

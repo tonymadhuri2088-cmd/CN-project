@@ -19,6 +19,7 @@ from urllib.parse import parse_qs, quote, unquote, urlparse
 
 from .health import compute_health
 from .history import History
+from .pdfexport import render_pdf
 from .report import render_report
 from .scenarios import _SCENARIOS
 
@@ -93,6 +94,9 @@ def run_page(rec: dict) -> bytes:
         for t in rec["tests"])
     note = "<p class='nm'>Pass/fail was parsed from tool output text (older log).</p>" if rec["parsed_from_text"] else ""
     sc = rec["score"]
+    asr = rec.get("assurance")
+    asr_html = (f"<br><b>Evidence assurance:</b> <span class='tag'>{e(asr['label'])}</span> {e(asr['reason'])}"
+                if asr else "<br><b>Evidence assurance:</b> not assessed (older log without recorded test categories)")
     truth = _SCENARIOS.get(rec["scenario"])
     gt = f"<p>Ground truth: <code>{e(truth.truth)}</code>{' + ' + ', '.join(truth.also) if truth.also else ''}</p>" if truth else ""
     body = (f"<h1>{e(rec['id'])} {_sim(rec['simulated'], rec.get('model') or '')}</h1>"
@@ -101,8 +105,8 @@ def run_page(rec: dict) -> bytes:
             f"<b>Verdict:</b> {e(str(rec['verdict']))} / {e(str(rec['fault_type']))}"
             f"{' (also ' + e(', '.join(rec['other_faults'])) + ')' if rec['other_faults'] else ''}<br>"
             f"<b>Tests:</b> {rec['tests_run']} · <b>Rejected claims:</b> {rec['rejected_claims']} · "
-            f"<b>Cost:</b> ${rec['cost_usd']:.4f}<br><b>Evaluation:</b> correct={sc.get('correct')} false_alarm={sc.get('false_alarm')}</div>{gt}"
-            f"<p><a href='/report/{quote(rec['id'])}'>Open report</a> · <a href='/report/{quote(rec['id'])}?download=1'>Download report (.html)</a></p>"
+            f"<b>Cost:</b> ${rec['cost_usd']:.4f}{asr_html}<br><b>Evaluation:</b> correct={sc.get('correct')} false_alarm={sc.get('false_alarm')}</div>{gt}"
+            f"<p><a href='/report/{quote(rec['id'])}'>Open report</a> · <a href='/report/{quote(rec['id'])}?download=1'>Download report (.html)</a> · <a href='/report/{quote(rec['id'])}?format=pdf'>Download report (.pdf)</a></p>"
             f"<h2>Network health</h2><p>{e(score)}. Indicators not measured are shown as such, never assumed healthy.</p>{bar}"
             f"<table><tr><th>Indicator</th><th>State</th><th>Measurements</th></tr>{hrows}</table>"
             f"<h2>Evidence explorer</h2>{note}<table><tr><th>Id</th><th>Tool</th><th>Arguments</th><th>Observation</th><th>Result</th></tr>{trows}</table>"
@@ -229,6 +233,10 @@ def make_handler(h: History, results_dir: str = "results"):
                 rec = h.get(rid)
                 if not rec:
                     return self._send(page("Not found", "<p>No such record.</p>"), code=404)
+                if q.get("format", [""])[0] == "pdf":
+                    fn = f"report-{rid.replace('#', '-')}.pdf"
+                    return self._send(render_pdf(rec), ctype="application/pdf",
+                                      extra={"Content-Disposition": f'attachment; filename="{fn}"'})
                 extra = {"Content-Disposition": f'attachment; filename="report-{rid.replace("#", "-")}.html"'} if "download" in q else None
                 return self._send(render_report(rec).encode(), extra=extra)
             if u.path == "/compare":

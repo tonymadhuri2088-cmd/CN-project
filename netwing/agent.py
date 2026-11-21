@@ -43,7 +43,13 @@ _PROMPTS = {
 _SMALL = "hosts h1 and h2 and a router r1"
 
 
-def _system_prompt(mode: str, scenario: Scenario, inventory: bool = False) -> str:
+_INCONCLUSIVE_NOTE = (
+    " If after testing the evidence is genuinely conflicting or insufficient, you may answer verdict=inconclusive "
+    "with fault_type=none; never guess a fault to avoid it."
+)
+
+
+def _system_prompt(mode: str, scenario: Scenario, inventory: bool = False, allow_inconclusive: bool = False) -> str:
     blurb = scenario.topology.get("blurb")
     p = _PROMPTS[mode].replace(_SMALL, blurb, 1) if blurb else _PROMPTS[mode]
     if inventory and scenario.subject is not None:
@@ -52,6 +58,8 @@ def _system_prompt(mode: str, scenario: Scenario, inventory: bool = False) -> st
         p += f" Inventory: the names {names} all refer to the same server."
     if getattr(scenario, "extended", False):
         p += " Faults can also be high_latency (reachable but very slow) or packet_loss (some packets are dropped)."
+    if allow_inconclusive:
+        p += _INCONCLUSIVE_NOTE
     return p
 
 
@@ -98,16 +106,21 @@ TOOLS = [
 _EXT_FAULTS = ["high_latency", "packet_loss"]
 
 
-def _tools_for(scenario: Scenario) -> list:
-    """The standard tool list; lab scenarios also allow high_latency and packet_loss in the final answer."""
-    if not getattr(scenario, "extended", False):
+def _tools_for(scenario: Scenario, allow_inconclusive: bool = False) -> list:
+    """The standard tool list. Lab scenarios also allow high_latency and packet_loss in the final answer;
+    allow_inconclusive (opt-in) adds an 'inconclusive' verdict."""
+    extended = getattr(scenario, "extended", False)
+    if not extended and not allow_inconclusive:
         return TOOLS
     import copy
 
     tools = copy.deepcopy(TOOLS)
     props = tools[-1]["input_schema"]["properties"]
-    props["fault_type"]["enum"] = props["fault_type"]["enum"][:-1] + _EXT_FAULTS + ["none"]
-    props["other_faults"]["items"]["enum"] = props["other_faults"]["items"]["enum"] + _EXT_FAULTS
+    if extended:
+        props["fault_type"]["enum"] = props["fault_type"]["enum"][:-1] + _EXT_FAULTS + ["none"]
+        props["other_faults"]["items"]["enum"] = props["other_faults"]["items"]["enum"] + _EXT_FAULTS
+    if allow_inconclusive:
+        props["verdict"]["enum"] = props["verdict"]["enum"] + ["inconclusive"]
     return tools
 
 
@@ -170,6 +183,7 @@ def run_diagnosis(
     model: str,
     max_tests: int,
     inventory: bool = False,
+    allow_inconclusive: bool = False,
 ) -> RunLog:
     if mode not in MODES:
         raise ValueError(f"unknown mode {mode!r}; expected one of {MODES}")
@@ -184,7 +198,7 @@ def run_diagnosis(
 
     try:
         for _ in range(max_turns):
-            kwargs = dict(model=model, max_tokens=MAX_TOKENS, system=_system_prompt(mode, scenario, inventory), tools=_tools_for(scenario), messages=messages)
+            kwargs = dict(model=model, max_tokens=MAX_TOKENS, system=_system_prompt(mode, scenario, inventory, allow_inconclusive), tools=_tools_for(scenario, allow_inconclusive), messages=messages)
             if forced:
                 kwargs["tool_choice"] = FORCED
             resp = client.messages.create(**kwargs)

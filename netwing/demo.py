@@ -33,6 +33,9 @@ def build_parser():
     p.add_argument("--inventory", action=argparse.BooleanOptionalAction, default=True,
                    help="tell every mode which names refer to the same server (a network inventory); "
                         "on by default, --no-inventory turns it off")
+    p.add_argument("--allow-inconclusive", action="store_true",
+                   help="let the model answer 'inconclusive' when the evidence conflicts or is insufficient "
+                        "(off by default so the published results stay comparable)")
     p.add_argument("--out", default=None)
     return p
 
@@ -96,7 +99,7 @@ def main(argv=None) -> int:
     guard = CostGuard(args.cap, args.run_cap, prices)
     logs = run_matrix(
         _scenario_ids(args), args.modes, args.repeats, _backend_factory(args), client, guard, model, out,
-        inventory=args.inventory,
+        inventory=args.inventory, allow_inconclusive=args.allow_inconclusive,
     )
     print(summarize(logs, simulated=args.backend == "sim", dry_run=args.dry_run))
     print(f"\nlogs: {out}   total spend: ${guard.spent_total:.4f} (cap ${args.cap:.2f})")

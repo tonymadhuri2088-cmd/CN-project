@@ -23,3 +23,19 @@ jobs:
         run: python -m pytest -q
       - name: Dry run of the whole pipeline (stub client, zero API spend)
         run: python -m netwing.demo --dry-run --suite easy --repeats 1 --out /tmp/ci-run.jsonl
+
+  docker:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build the web UI image
+        run: docker build -t netwing-ui .
+      - name: "Smoke test - the UI answers from inside the container"
+        run: |
+          docker run -d --name ui -p 8765:8765 netwing-ui
+          for i in $(seq 1 20); do
+            if curl -fsS http://127.0.0.1:8765/lab > /dev/null; then echo "UI is up"; exit 0; fi
+            sleep 1
+          done
+          docker logs ui
+          exit 1

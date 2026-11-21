@@ -20,11 +20,11 @@ evidence is enough (or a test budget is hit).
 | Experiment runner | `netwing/runner.py`: matrix of scenarios x modes x repeats, equal 12-test budget per mode, JSONL log per run | Built |
 | Statistics | 95% Wilson intervals (correct, false alarms, all faults found), mean +/- 1.96 SE for tests, cost per run | Built |
 | Cost control | Hard USD cap (`--cap`), per-model token prices in `netwing/pricing.json`, run marked INCOMPLETE if the cap would be passed | Built |
-| Testing | pytest, 191 tests, fake LLM client (`tests/fake_client.py`), dry-run stub so the whole pipeline runs with zero API spend | Built |
+| Testing | pytest, 206 tests, fake LLM client (`tests/fake_client.py`), dry-run stub so the whole pipeline runs with zero API spend | Built |
 | Console commands | `netwing` (experiments) and `netwing-ui` (web UI) installed by `pip install -e .`; also runnable as `python -m netwing.demo` / `python -m netwing.webui` | Built, install tested in a clean virtualenv |
 | Lint | ruff (optional: `pip install -e ".[lint]"`; pyflakes and syntax checks in `pyproject.toml`), `requirements.txt` / `requirements-dev.txt` | Built, passes |
-| Continuous integration | GitHub Actions (`.github/workflows/ci.yml`): lint, 191 tests and a dry-run of the pipeline on Python 3.10-3.13, no API key needed | Written; first run happens on the next push, not yet seen passing. Only Python 3.13 was run locally (3.10 syntax checked) |
-| Containerisation | `Dockerfile` for the web UI (history, reports, simulator runs) | Written, not built or tested; real Kathara/netns labs are not containerised |
+| Continuous integration | GitHub Actions (`.github/workflows/ci.yml`): lint, 206 tests and a dry-run of the pipeline on Python 3.10-3.13, no API key needed | First run (commit 954b850) passed on Python 3.10-3.13; the Docker build and a smoke test of the UI image were added after that and have not run yet |
+| Containerisation | `Dockerfile` for the web UI (history, reports, simulator runs) | Written; CI builds it and checks the UI answers from inside the container (first CI run pending); real Kathara/netns labs are not containerised |
 | Lab automation | Bash setup scripts (`setup_linux.sh`, `run_real_lab.sh`), fault-injection script (`labs/inject.sh`) | Built |
 
 ### Mini Project 2 layer (built; does not change diagnosis behaviour)
@@ -34,7 +34,9 @@ evidence is enough (or a test budget is hit).
 | Evidence explorer records | `netwing/records.py` | Built |
 | Network health score from measured values only (unmeasured indicators shown separately, never assumed healthy) | `netwing/health.py` | Built |
 | Persistent investigation history, filter and compare | SQLite (stdlib) in `netwing/history.py`, imports `results/run-*.jsonl` | Built |
-| Report export (problem, tests, observations, root cause, evidence, limitations, recommendations) | Standalone HTML in `netwing/report.py` (print to PDF from the browser) | Built |
+| Report export (problem, tests, observations, root cause, evidence, limitations, recommendations) | Standalone HTML (`netwing/report.py`) and a native PDF writer with no third-party library (`netwing/pdfexport.py`; `?format=pdf` on the report URL, a button on each run page) | Built |
+| Evidence assurance: Confirmed / Suspected / Inconclusive per investigation | `Controller.assess` (read-only: replays the recorded tests through the controller's own rules); shown on the run page, HTML report and PDF. Older logs without recorded test categories are shown as "not assessed" | Built |
+| Opt-in "inconclusive" answer | `--allow-inconclusive` adds an `inconclusive` verdict (gated: at least 3 tests, and not allowed when a confirmed fault or a fully passing network stands). Off by default, so every published result is unchanged. Scored as no answer, never as a false alarm | Built, not yet evaluated with the real model |
 | Web UI: history, investigation detail, compare, simulation lab with ground truth | Python stdlib `http.server`, `netwing/webui.py`, no extra dependencies | Built |
 
 Run the UI: `python -m netwing.webui --results results --port 8765`, then open http://127.0.0.1:8765
@@ -44,7 +46,16 @@ Run the UI: `python -m netwing.webui --results results --port 8765`, then open h
 `python -m netwing.demo --backend sim --suite lab --repeats 3 --cap 3` runs four extra scenarios with ground truth: `lab_high_latency`, `lab_packet_loss`, `lab_misleading_dns` (ticket says the server is down; the real fault is DNS), `lab_misleading_healthy`. Only these scenarios offer `high_latency` and `packet_loss` as answers; the experiment suites keep exactly the same tools and prompts. `--suite all` does not include the lab.
 
 ### Planned (not built yet)
-An "inconclusive" verdict; a confirmed-vs-suspected distinction; lab scenarios on the real Kathara/netns backends; native PDF export; results tables for the lab suite (the scenarios exist and are tested, but have not been run with the real model).
+Lab scenarios on the real Kathara/netns backends; evaluating `--allow-inconclusive` with the real model; a second model; 30+ repeats and held-out scenarios; building and testing the Docker image locally (CI now builds it).
+
+### Lab suite results (Haiku 5.5, simulated, 12 runs per mode, 21 Nov 2026)
+| Mode | Correct [95% CI] | False alarms | Mean tests | Mean cost |
+|---|---|---|---|---|
+| plain | 100% [76-100] | 0% [0-56] | 7.2 ±1.5 | $0.0012 |
+| healthy_ok | 100% [76-100] | 0% [0-56] | 7.4 ±1.6 | $0.0012 |
+| netwing | 100% [76-100] | 0% [0-56] | 5.4 ±0.8 | $0.0010 |
+
+All modes answered every lab scenario correctly, so there is no accuracy difference here. netwing used fewer tests, but with 12 runs the intervals overlap slightly: read it as a consistent direction, not a proven effect. The lab healthy case has only 3 runs per mode, so no false-alarm claim is made from this suite.
 
 ## Architecture
 
@@ -85,7 +96,7 @@ Scenario suites: three real faults (`dns_failure`, `route_failure`, `port_blocke
 ## Run it (Windows, macOS or Linux; Python 3.10+)
 ```
 pip install -e ".[dev]"
-pytest                                   # 191 tests, no API needed
+pytest                                   # 206 tests, no API needed
 python -m netwing.demo --dry-run         # whole pipeline, zero API spend (stub client)
 ```
 Real model run on the **simulated** network (set the key in your shell, never in a file or chat):
