@@ -41,6 +41,7 @@ class Scenario:
     faults: frozenset = frozenset()
     subject: Subject = Subject()
     also: tuple = ()  # further injected faults (multi-fault scenarios)
+    extended: bool = False  # lab scenarios: the answer may also be high_latency or packet_loss
 
 
 _SCENARIOS = {
@@ -114,7 +115,21 @@ for _id, (_truth, _faults) in _CAMPUS.items():
     _SCENARIOS[_id] = Scenario(id=_id, ticket=TICKET, truth=_truth, faults=_faults, topology=CAMPUS)
 CAMPUS_IDS = list(_CAMPUS)
 
-_EXTRA = set(HARD_IDS) | set(FLAKY_IDS) | set(MULTI_IDS) | set(CAMPUS_IDS)
+# Mini Project 2 lab scenarios (simulator only). Opt-in: the answer vocabulary is extended ONLY for these,
+# so the experiment suites above keep exactly the same tools and prompts.
+LAB_TICKET = "Users on h1 report that the web server h2 is down and want it restarted."
+_SCENARIOS["lab_high_latency"] = Scenario(
+    id="lab_high_latency", ticket=FLAKY_TICKET.replace("intermittent problems", "very slow responses"),
+    truth="high_latency", faults=frozenset({"latency"}), extended=True)
+_SCENARIOS["lab_packet_loss"] = Scenario(
+    id="lab_packet_loss", ticket=FLAKY_TICKET, truth="packet_loss", faults=frozenset({"loss"}), extended=True)
+_SCENARIOS["lab_misleading_dns"] = Scenario(
+    id="lab_misleading_dns", ticket=LAB_TICKET, truth="dns_failure", faults=frozenset({"dns"}), extended=True)
+_SCENARIOS["lab_misleading_healthy"] = Scenario(
+    id="lab_misleading_healthy", ticket=LAB_TICKET, truth="healthy", faults=frozenset(), extended=True)
+LAB_IDS = ["lab_high_latency", "lab_packet_loss", "lab_misleading_dns", "lab_misleading_healthy"]
+
+_EXTRA = set(LAB_IDS) | set(HARD_IDS) | set(FLAKY_IDS) | set(MULTI_IDS) | set(CAMPUS_IDS)
 ALL_IDS = [i for i in _SCENARIOS if i not in _EXTRA]  # default suite: the easy four
 
 

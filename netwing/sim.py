@@ -2,7 +2,7 @@
 
 Fault flags (Scenario.faults): dns, route (no route to the web server's subnet), port (web port filtered),
 noise (red-herring alerts), blip (the first ping to the web server is lost), flaky_port (web port alternates
-filtered/open).
+filtered/open), latency (ping to the web server averages 480 ms), loss (67% packet loss to the web server).
 """
 from __future__ import annotations
 
@@ -91,6 +91,10 @@ class SimNetwork:
             lost = lost or self._calls["blip"] == 1  # only the first ping is lost
         if lost:
             return self._result("ping", args, f"{src} -> {dst}: 3 packets sent, 0 received, 100% loss", False, "connectivity")
+        if node == _WEB and "loss" in self.faults:
+            return self._result("ping", args, f"{src} -> {dst}: 3 packets sent, 1 received, 67% loss", False, "connectivity")
+        if node == _WEB and "latency" in self.faults:
+            return self._result("ping", args, f"{src} -> {dst}: 3 packets sent, 3 received, 0% loss, avg rtt 480 ms (normal: under 100 ms)", False, "connectivity")
         return self._result("ping", args, f"{src} -> {dst}: 3 packets sent, 3 received, 0% loss", True, "connectivity")
 
     def traceroute(self, src, dst):
@@ -103,8 +107,9 @@ class SimNetwork:
         if "route" in self.faults and node == _WEB:
             text = f"1  {self.hops[0]}  0.4 ms\n2  * * *\n3  * * *  (no route beyond {self.hops[0]})"
             return self._result("traceroute", args, text, False, "connectivity")
-        lines = [f"{i}  {h}  {0.4 * i:.1f} ms" for i, h in enumerate(self.hops, 1)]
-        lines.append(f"{len(self.hops) + 1}  {dst}  {0.4 * (len(self.hops) + 1):.1f} ms")
+        slow = 120 if ("latency" in self.faults and node == _WEB) else 1  # latency scenario: slow beyond the router
+        lines = [f"{i}  {h}  {0.4 * i * (slow if i > 1 else 1):.1f} ms" for i, h in enumerate(self.hops, 1)]
+        lines.append(f"{len(self.hops) + 1}  {dst}  {0.4 * (len(self.hops) + 1) * slow:.1f} ms")
         return self._result("traceroute", args, "\n".join(lines), True, "connectivity")
 
     def dns_lookup(self, src, name):

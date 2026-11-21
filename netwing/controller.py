@@ -14,6 +14,8 @@ _FAULT_CATEGORIES = {
     "dns_failure": {"dns"},
     "port_blocked": {"port"},
     "route_failure": {"connectivity", "routing"},
+    "high_latency": {"connectivity"},  # lab scenarios only: the answer enum offers these only there
+    "packet_loss": {"connectivity"},
 }
 _HEALTHY_NEEDS = {"connectivity", "dns", "port"}
 

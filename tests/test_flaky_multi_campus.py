@@ -1,6 +1,4 @@
-import json
 
-import pytest
 from netwing.backend import ToolResult
 from netwing.controller import Controller, Verdict
 from netwing.scenarios import ALL_IDS, CAMPUS_IDS, FLAKY_IDS, HARD_IDS, MULTI_IDS, TICKET, get_scenario

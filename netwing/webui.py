@@ -9,6 +9,10 @@ from __future__ import annotations
 
 import argparse
 import os
+import subprocess
+import sys
+import tempfile
+import time
 from html import escape as e
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import parse_qs, quote, unquote, urlparse
@@ -17,6 +21,8 @@ from .health import compute_health
 from .history import History
 from .report import render_report
 from .scenarios import _SCENARIOS
+
+_JOB: dict = {}  # the one running or last investigation started from the UI
 
 CSS = ("body{font:15px/1.5 system-ui,sans-serif;margin:0;color:#222;background:#f6f7f9}"
        "nav{background:#1f2a44;padding:10px 24px}nav a{color:#fff;margin-right:18px;text-decoration:none}"
@@ -30,11 +36,24 @@ CSS = ("body{font:15px/1.5 system-ui,sans-serif;margin:0;color:#222;background:#
 
 def page(title: str, body: str) -> bytes:
     return (f"<!doctype html><meta charset='utf-8'><title>{e(title)}</title><style>{CSS}</style>"
-            f"<nav><a href='/'>History</a><a href='/lab'>Simulation lab</a></nav><main>{body}</main>").encode()
+            f"<nav><a href='/'>History</a><a href='/lab'>Simulation lab</a><a href='/new'>Run investigation</a></nav><main>{body}</main>").encode()
 
 
-def _sim(r) -> str:
-    return "<span class='tag'>SIMULATED</span>" if r else "real"
+def _sim(r, model: str = "") -> str:
+    tag = "<span class='tag'>SIMULATED</span>" if r else "real"
+    return tag + (" <span class='tag' style='background:#e0e0e0'>DRY RUN stub</span>" if model == "dry-run" else "")
+
+
+def summary_html(h: History, scenario: str) -> str:
+    st = h.stats(scenario)
+    if not st:
+        return ""
+    rows = "".join(
+        f"<tr><td>{e(r['mode'])}</td><td>{r['runs']}</td><td>{round(100 * r['correct'] / r['runs'])}%</td>"
+        f"<td>{r['false_alarms']}</td><td>{r['mean_tests']:.1f}</td><td>${r['mean_cost']:.4f}</td></tr>" for r in st)
+    return ("<div class='card'><b>Totals for this filter (real model runs only; dry-run stubs excluded)</b>"
+            "<table><tr><th>Mode</th><th>Runs</th><th>Correct</th><th>False alarms</th><th>Mean tests</th><th>Mean cost</th></tr>"
+            f"{rows}</table><p class='nm'>Counts only; for quotable numbers use the confidence-interval tables from the CLI.</p></div>")
 
 
 def history_page(h: History, q: dict) -> bytes:
@@ -44,6 +63,7 @@ def history_page(h: History, q: dict) -> bytes:
     modes = "<option value=''>All</option>" + "".join(f"<option{' selected' if m == mode else ''}>{m}</option>" for m in ["plain", "healthy_ok", "netwing"])
     body = (f"<h1>Investigation history</h1><form>Scenario <select name='scenario'>{opts}</select> "
             f"Mode <select name='mode'>{modes}</select> <button>Filter</button></form><p>Showing {len(rows)} of {total} (newest first; filter to narrow)</p>"
+            + summary_html(h, sc) +
             "<form action='/compare'><table><tr><th>A</th><th>B</th><th>Record</th><th>Scenario</th><th>Mode</th>"
             "<th>Verdict</th><th>Correct</th><th>Tests</th><th>Cost</th><th>Network</th></tr>")
     for r in rows:
@@ -51,7 +71,7 @@ def history_page(h: History, q: dict) -> bytes:
         body += (f"<tr><td><input type='radio' name='a' value='{rid}'></td><td><input type='radio' name='b' value='{rid}'></td>"
                  f"<td><a href='/run/{quote(r['id'])}'>{rid}</a></td><td>{e(r['scenario'])}</td><td>{e(r['mode'])}</td>"
                  f"<td>{e(str(r['verdict']))}</td><td>{'yes' if r['correct'] else 'no'}</td><td>{r['tests_run']}</td>"
-                 f"<td>${r['cost']:.4f}</td><td>{_sim(r['simulated'])}</td></tr>")
+                 f"<td>${r['cost']:.4f}</td><td>{_sim(r['simulated'], r.get('model') or '')}</td></tr>")
     body += "</table><p><button>Compare selected A and B</button></p></form>"
     return page("History", body)
 
@@ -62,6 +82,11 @@ def run_page(rec: dict) -> bytes:
         f"<tr><td>{e(i['label'])}</td><td class='{i['state'] if i['state'] != 'not_measured' else 'nm'}'>"
         f"{e(i['state'].replace('_', ' '))}</td><td>{i['measurements']}</td></tr>" for i in health["indicators"])
     score = "not enough measurements" if health["score"] is None else f"{health['score']}/100 from {health['measured']} of {health['total']} indicators"
+    bar = ""
+    if health["score"] is not None:
+        col = "#0a6b2d" if health["score"] >= 80 else "#9a6700" if health["score"] >= 50 else "#b00020"
+        bar = (f"<div style='background:#e4e6ea;border-radius:6px;width:320px;height:18px'><div style='background:{col};"
+               f"width:{health['score']}%;height:18px;border-radius:6px'></div></div>")
     trows = "".join(
         f"<tr><td>{e(t['id'])}</td><td>{e(t['tool'])}</td><td><code>{e(str(t['args']))}</code></td>"
         f"<td>{e(t['output']).replace(chr(10), '<br>')}</td><td class='{'pass' if t['ok'] else 'fail'}'>{'pass' if t['ok'] else 'fail'}</td></tr>"
@@ -70,7 +95,7 @@ def run_page(rec: dict) -> bytes:
     sc = rec["score"]
     truth = _SCENARIOS.get(rec["scenario"])
     gt = f"<p>Ground truth: <code>{e(truth.truth)}</code>{' + ' + ', '.join(truth.also) if truth.also else ''}</p>" if truth else ""
-    body = (f"<h1>{e(rec['id'])} {_sim(rec['simulated'])}</h1>"
+    body = (f"<h1>{e(rec['id'])} {_sim(rec['simulated'], rec.get('model') or '')}</h1>"
             f"<div class='card'><b>Ticket:</b> {e(rec['ticket'])}<br><b>Scenario:</b> {e(str(rec['scenario']))} · "
             f"<b>Mode:</b> {e(str(rec['mode']))} · <b>Status:</b> {e(str(rec['status']))}<br>"
             f"<b>Verdict:</b> {e(str(rec['verdict']))} / {e(str(rec['fault_type']))}"
@@ -78,7 +103,7 @@ def run_page(rec: dict) -> bytes:
             f"<b>Tests:</b> {rec['tests_run']} · <b>Rejected claims:</b> {rec['rejected_claims']} · "
             f"<b>Cost:</b> ${rec['cost_usd']:.4f}<br><b>Evaluation:</b> correct={sc.get('correct')} false_alarm={sc.get('false_alarm')}</div>{gt}"
             f"<p><a href='/report/{quote(rec['id'])}'>Open report</a> · <a href='/report/{quote(rec['id'])}?download=1'>Download report (.html)</a></p>"
-            f"<h2>Network health</h2><p>{e(score)}. Indicators not measured are shown as such, never assumed healthy.</p>"
+            f"<h2>Network health</h2><p>{e(score)}. Indicators not measured are shown as such, never assumed healthy.</p>{bar}"
             f"<table><tr><th>Indicator</th><th>State</th><th>Measurements</th></tr>{hrows}</table>"
             f"<h2>Evidence explorer</h2>{note}<table><tr><th>Id</th><th>Tool</th><th>Arguments</th><th>Observation</th><th>Result</th></tr>{trows}</table>"
             "<h2>Evidence cited in the answer</h2><ul>" + "".join(f"<li>{e(x)}</li>" for x in rec["claimed_evidence"]) + "</ul>")
@@ -93,7 +118,9 @@ def compare_page(c: dict | None) -> bytes:
     def col(r):
         return (f"<td><a href='/run/{quote(r['id'])}'>{e(r['id'])}</a><br>{e(r['scenario'])} · {e(r['mode'])}<br>"
                 f"verdict: {e(str(r['verdict']))} / {e(str(r['fault_type']))}<br>tests: {r['tests_run']} · cost ${r['cost_usd']:.4f}</td>")
-    fmt = lambda s: "".join(f"<li>{e(t)} <code>{e(a_)}</code></li>" for t, a_ in s) or "<li>none</li>"
+    def fmt(pairs):
+        return "".join(f"<li>{e(t)} <code>{e(a_)}</code></li>" for t, a_ in pairs) or "<li>none</li>"
+
     body = (f"<h1>Compare</h1><table><tr><th>A</th><th>B</th></tr><tr>{col(a)}{col(b)}</tr></table>"
             f"<p>{c['shared']} identical test(s) in both.</p><h2>Only in A</h2><ul>{fmt(c['only_a'])}</ul>"
             f"<h2>Only in B</h2><ul>{fmt(c['only_b'])}</ul>")
@@ -107,11 +134,54 @@ def lab_page() -> bytes:
                  f"<td>{e(s.ticket)}</td><td><code>python -m netwing.demo --backend sim --scenarios {e(sid)} --repeats 1 --cap 1</code></td></tr>")
     note = ("<p>Every scenario has a ground-truth label used for automatic scoring. Observations from these scenarios are "
             "<span class='tag'>SIMULATED</span> unless you run the Kathara or Linux-namespace backend (see SETUP_LINUX.md). "
-            "Not yet available: high-latency, packet-loss and misleading-complaint scenarios.</p>")
+            "The <code>lab_*</code> scenarios (high latency, packet loss, misleading complaint) exist only in the simulator.</p>")
     return page("Simulation lab", f"<h1>Simulation lab</h1>{note}<table><tr><th>Scenario</th><th>Ground truth</th><th>Ticket</th><th>Run it</th></tr>{rows}</table>")
 
 
-def make_handler(h: History):
+def new_page(msg: str = "") -> bytes:
+    opts = "".join(f"<option>{e(sid)}</option>" for sid in _SCENARIOS)
+    have_key = bool(os.environ.get("ANTHROPIC_API_KEY"))
+    key_note = ("<p>An API key is set in this window: real model runs are possible (cost about $0.002 per run, capped at $0.50 total here).</p>"
+                if have_key else "<p class='nm'>No API key in this window, so only the dry-run stub is available.</p>")
+    dry = "" if have_key else " checked disabled"
+    body = (f"<h1>Run an investigation</h1>{msg}{key_note}"
+            "<p>Runs the scenario in the simulator with all three modes (plain, healthy_ok, netwing). Results appear in History.</p>"
+            f"<form method='post' action='/new'>Scenario <select name='scenario'>{opts}</select> "
+            "Repeats <select name='repeats'><option>1</option><option>2</option><option>3</option></select> "
+            f"<label><input type='checkbox' name='dry' value='1'{dry}> dry run (scripted stub, no API, not a real diagnosis)</label> "
+            "<button>Start</button></form>")
+    j = _JOB.get("proc")
+    if j is not None:
+        done = j.poll() is not None
+        try:
+            tail = open(_JOB["log"], encoding="utf-8", errors="replace").read()[-1500:]
+        except OSError:
+            tail = ""
+        link = "<p><a href='/'>Open History</a></p>" if done else "<p>Refresh this page in a few seconds.</p>"
+        state = "finished" if done else "running..."
+        body += (f"<div class='card'><b>Last run:</b> {state} (exit {j.returncode})"
+                 f"<pre style='white-space:pre-wrap'>{e(tail)}</pre>{link}</div>")
+    return page("Run investigation", body)
+
+
+def start_job(results_dir: str, scenario: str, repeats: int, dry: bool) -> str:
+    if scenario not in _SCENARIOS:
+        return "<p class='fail'>Unknown scenario.</p>"
+    if _JOB.get("proc") is not None and _JOB["proc"].poll() is None:
+        return "<p class='fail'>A run is already in progress.</p>"
+    if not dry and not os.environ.get("ANTHROPIC_API_KEY"):
+        return "<p class='fail'>No API key in this window; tick dry run or set the key and restart the UI.</p>"
+    repeats = max(1, min(3, repeats))
+    out = os.path.join(results_dir, f"run-{time.strftime('%Y%m%d-%H%M%S')}.jsonl")
+    cmd = [sys.executable, "-m", "netwing.demo", "--backend", "sim", "--scenarios", scenario,
+           "--repeats", str(repeats), "--cap", "0.5", "--out", out] + (["--dry-run"] if dry else [])
+    log = tempfile.NamedTemporaryFile("w", delete=False, suffix=".log")
+    env = dict(os.environ, PYTHONIOENCODING="utf-8")  # Windows consoles default to cp1252, which garbles the ± in the table
+    _JOB.update(proc=subprocess.Popen(cmd, stdout=log, stderr=subprocess.STDOUT, env=env), log=log.name, out=out)
+    return "<p>Started.</p>"
+
+
+def make_handler(h: History, results_dir: str = "results"):
     class H(BaseHTTPRequestHandler):
         def log_message(self, *a):  # quiet
             pass
@@ -124,6 +194,20 @@ def make_handler(h: History):
             self.end_headers()
             self.wfile.write(body)
 
+        def do_POST(self):
+            u = urlparse(self.path)
+            if u.path != "/new":
+                return self._send(page("Not found", "<p>Not found.</p>"), code=404)
+            n = int(self.headers.get("Content-Length") or 0)
+            f = parse_qs(self.rfile.read(min(n, 4096)).decode("utf-8", "replace"))
+            try:
+                reps = int(f.get("repeats", ["1"])[0])
+            except ValueError:
+                reps = 1
+            _JOB.pop("imported", None)
+            msg = start_job(results_dir, f.get("scenario", [""])[0], reps, "dry" in f)
+            return self._send(new_page(msg))
+
         def do_GET(self):
             u = urlparse(self.path)
             q = parse_qs(u.query)
@@ -131,6 +215,12 @@ def make_handler(h: History):
                 return self._send(history_page(h, q))
             if u.path == "/lab":
                 return self._send(lab_page())
+            if u.path == "/new":
+                p = _JOB.get("proc")
+                if p is not None and p.poll() is not None and not _JOB.get("imported"):
+                    h.import_dir(results_dir)
+                    _JOB["imported"] = True
+                return self._send(new_page())
             if u.path.startswith("/run/"):
                 rec = h.get(unquote(u.path[5:]))
                 return self._send(run_page(rec) if rec else page("Not found", "<p>No such record.</p>"), code=200 if rec else 404)
@@ -152,12 +242,13 @@ def main(argv=None) -> None:
     ap = argparse.ArgumentParser(description="NetWing web UI")
     ap.add_argument("--results", default="results")
     ap.add_argument("--port", type=int, default=8765)
+    ap.add_argument("--host", default="127.0.0.1", help="bind address; keep 127.0.0.1 unless running in a container")
     a = ap.parse_args(argv)
     os.makedirs(a.results, exist_ok=True)
     h = History(os.path.join(a.results, "history.db"))
     print(f"imported {h.import_dir(a.results)} new run(s)")
-    print(f"NetWing UI on http://127.0.0.1:{a.port}  (Ctrl+C to stop)")
-    ThreadingHTTPServer(("127.0.0.1", a.port), make_handler(h)).serve_forever()
+    print(f"NetWing UI on http://{a.host}:{a.port}  (Ctrl+C to stop)")
+    ThreadingHTTPServer((a.host, a.port), make_handler(h, a.results)).serve_forever()
 
 
 if __name__ == "__main__":

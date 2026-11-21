@@ -5,7 +5,7 @@ from dataclasses import dataclass
 
 from .scenarios import Scenario
 
-_VALID_FAULTS = {"dns_failure", "route_failure", "port_blocked", "none"}
+_VALID_FAULTS = {"dns_failure", "route_failure", "port_blocked", "high_latency", "packet_loss", "none"}
 
 
 @dataclass(frozen=True)

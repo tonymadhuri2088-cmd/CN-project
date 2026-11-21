@@ -1,4 +1,3 @@
-import pytest
 from netwing.agent import run_diagnosis
 from netwing.backend import ToolResult
 from netwing.controller import Controller, Verdict

@@ -5,8 +5,17 @@ description = "NetWing: evidence-sufficiency controller for LLM network-diagnosi
 requires-python = ">=3.10"
 dependencies = ["anthropic>=0.40"]
 
+readme = "README.md"
+license = { text = "All rights reserved (course project; licence to be chosen by the authors)" }
+keywords = ["networking", "llm", "agents", "diagnosis", "evaluation"]
+
 [project.optional-dependencies]
 dev = ["pytest"]
+lint = ["ruff"]
+
+[project.scripts]
+netwing = "netwing.demo:main"
+netwing-ui = "netwing.webui:main"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
@@ -21,3 +30,11 @@ packages = ["netwing"]
 
 [tool.setuptools.package-data]
 netwing = ["pricing.json"]
+
+[tool.ruff]
+line-length = 120
+target-version = "py310"
+
+[tool.ruff.lint]
+select = ["E4", "E7", "E9", "F"]
+ignore = ["E741"]

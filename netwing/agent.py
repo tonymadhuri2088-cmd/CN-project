@@ -50,6 +50,8 @@ def _system_prompt(mode: str, scenario: Scenario, inventory: bool = False) -> st
         # An engineer has the network inventory; it is given to every mode alike so the comparison stays fair.
         names = ", ".join(sorted(scenario.subject.names))
         p += f" Inventory: the names {names} all refer to the same server."
+    if getattr(scenario, "extended", False):
+        p += " Faults can also be high_latency (reachable but very slow) or packet_loss (some packets are dropped)."
     return p
 
 
@@ -93,6 +95,22 @@ TOOLS = [
         ["verdict", "fault_type", "evidence"],
     ),
 ]
+_EXT_FAULTS = ["high_latency", "packet_loss"]
+
+
+def _tools_for(scenario: Scenario) -> list:
+    """The standard tool list; lab scenarios also allow high_latency and packet_loss in the final answer."""
+    if not getattr(scenario, "extended", False):
+        return TOOLS
+    import copy
+
+    tools = copy.deepcopy(TOOLS)
+    props = tools[-1]["input_schema"]["properties"]
+    props["fault_type"]["enum"] = props["fault_type"]["enum"][:-1] + _EXT_FAULTS + ["none"]
+    props["other_faults"]["items"]["enum"] = props["other_faults"]["items"]["enum"] + _EXT_FAULTS
+    return tools
+
+
 _BACKEND_TOOLS = {"ping", "traceroute", "dns_lookup", "port_check", "show_routes"}
 FORCED = {"type": "tool", "name": "final_answer"}
 FORCE_TEXT = "You have enough information. Give your final answer now with final_answer."
@@ -166,7 +184,7 @@ def run_diagnosis(
 
     try:
         for _ in range(max_turns):
-            kwargs = dict(model=model, max_tokens=MAX_TOKENS, system=_system_prompt(mode, scenario, inventory), tools=TOOLS, messages=messages)
+            kwargs = dict(model=model, max_tokens=MAX_TOKENS, system=_system_prompt(mode, scenario, inventory), tools=_tools_for(scenario), messages=messages)
             if forced:
                 kwargs["tool_choice"] = FORCED
             resp = client.messages.create(**kwargs)

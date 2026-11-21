@@ -105,3 +105,47 @@ def test_history_orders_newest_file_first_and_numeric_run_order(tmp_path):
     assert total == 24
     assert [r["id"] for r in rows] == [f"run-20260202-000000#{n}" for n in (1, 2, 3, 4, 5)]
     assert h.list_page(limit=24)[0][12]["id"] == "run-20260101-000000#1"
+
+
+def test_stats_exclude_dry_run_records(tmp_path):
+    lines = [json.loads(l) for l in open(os.path.join(FIX, "run-sample.jsonl"), encoding="utf-8") if l.strip()]
+    lines[0]["model"] = "dry-run"
+    (tmp_path / "run-20260101-000000.jsonl").write_text("\n".join(json.dumps(x) for x in lines), encoding="utf-8")
+    h = History(str(tmp_path / "h.db"))
+    h.import_dir(str(tmp_path))
+    assert sum(r["runs"] for r in h.stats()) == 2
+    assert sum(r["runs"] for r in h.stats(real_only=False)) == 3
+    assert any(r.get("model") == "dry-run" for r in h.list())
+
+
+def test_run_from_ui_dry_run_adds_history_and_is_flagged(tmp_path):
+    import time
+    import urllib.parse
+
+    h = History(str(tmp_path / "h.db"))
+    srv = ThreadingHTTPServer(("127.0.0.1", 0), make_handler(h, str(tmp_path)))
+    threading.Thread(target=srv.serve_forever, daemon=True).start()
+    base = f"http://127.0.0.1:{srv.server_address[1]}"
+    try:
+        assert "Run an investigation" in urllib.request.urlopen(base + "/new").read().decode()
+        data = urllib.parse.urlencode({"scenario": "dns_failure", "repeats": "1", "dry": "1"}).encode()
+        assert "Started" in urllib.request.urlopen(base + "/new", data).read().decode()
+        from netwing import webui
+
+        for _ in range(60):
+            if webui._JOB["proc"].poll() is not None:
+                break
+            time.sleep(0.5)
+        assert webui._JOB["proc"].returncode == 0
+        urllib.request.urlopen(base + "/new").read()  # triggers the import
+        rows = h.list()
+        assert len(rows) == 3 and all(r["model"] == "dry-run" for r in rows)
+        assert "DRY RUN stub" in urllib.request.urlopen(base + "/").read().decode()
+    finally:
+        srv.shutdown()
+
+
+def test_run_from_ui_rejects_unknown_scenario(tmp_path):
+    from netwing.webui import start_job
+
+    assert "Unknown scenario" in start_job(str(tmp_path), "../../etc/passwd", 1, True)
