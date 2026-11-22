@@ -8,7 +8,7 @@ import time
 
 from .budget import CostGuard, load_prices
 from .runner import run_matrix, summarize
-from .scenarios import ALL_IDS, CAMPUS_IDS, FLAKY_IDS, HARD_IDS, LAB_IDS, MULTI_IDS
+from .scenarios import ALL_IDS, CAMPUS_IDS, FLAKY_IDS, HARD_IDS, HELDOUT_IDS, LAB_IDS, MULTI_IDS
 from .sim import SimNetwork
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -23,10 +23,10 @@ def build_parser():
     p.add_argument("--run-cap", type=float, default=0.50, help="hard USD cap per run")
     p.add_argument("--model", default=os.environ.get("NETWING_MODEL", "claude-haiku-5-5"))
     p.add_argument("--dry-run", action="store_true", help="scripted stub client, zero API spend")
-    p.add_argument("--suite", choices=["easy", "hard", "flaky", "multi", "campus", "lab", "all"], default="easy",
+    p.add_argument("--suite", choices=["easy", "hard", "flaky", "multi", "campus", "lab", "heldout", "all"], default="easy",
                    help="easy: four basic cases; hard: plus red-herring alerts; flaky: transient/intermittent; "
-                        "multi: two faults at once; campus: bigger network; all: everything")
-    p.add_argument("--scenarios", nargs="+", default=None, choices=ALL_IDS + HARD_IDS + FLAKY_IDS + MULTI_IDS + CAMPUS_IDS + LAB_IDS,
+                        "multi: two faults at once; campus: bigger network; lab and heldout: simulator-only extra suites; all: easy+hard+flaky+multi+campus")
+    p.add_argument("--scenarios", nargs="+", default=None, choices=ALL_IDS + HARD_IDS + FLAKY_IDS + MULTI_IDS + CAMPUS_IDS + LAB_IDS + HELDOUT_IDS,
                    help="explicit scenario ids (overrides --suite)")
     p.add_argument("--modes", nargs="+", default=MODES, choices=MODES)
     p.add_argument("--lab-root", default="labs", help="kathara lab folders, one per scenario id")
@@ -66,15 +66,16 @@ def _scenario_ids(args):
     if args.scenarios:
         return args.scenarios
     suites = {"easy": ALL_IDS, "hard": HARD_IDS, "flaky": FLAKY_IDS, "multi": MULTI_IDS, "campus": CAMPUS_IDS}
-    suites["all"] = [i for ids in suites.values() for i in ids]  # "all" does not include the lab suite
+    suites["all"] = [i for ids in suites.values() for i in ids]  # "all" does not include the lab or held-out suites
     suites["lab"] = LAB_IDS
+    suites["heldout"] = HELDOUT_IDS  # also not part of "all": run it once on frozen code
     return suites[args.suite]
 
 
 def main(argv=None) -> int:
     args = build_parser().parse_args(argv)
-    if args.backend != "sim" and set(_scenario_ids(args)) & set(LAB_IDS):
-        raise SystemExit("the lab scenarios (latency, packet loss, misleading complaint) exist only in the simulator: use --backend sim")
+    if args.backend != "sim" and set(_scenario_ids(args)) & (set(LAB_IDS) | set(HELDOUT_IDS)):
+        raise SystemExit("the lab and held-out scenarios exist only in the simulator: use --backend sim")
     if args.backend == "kathara" and shutil.which("kathara") is None:
         raise SystemExit("the 'kathara' command was not found; install Kathara and Docker first (see SETUP_LINUX.md)")
     if args.dry_run:

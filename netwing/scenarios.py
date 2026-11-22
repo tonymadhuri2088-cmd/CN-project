@@ -129,7 +129,26 @@ _SCENARIOS["lab_misleading_healthy"] = Scenario(
     id="lab_misleading_healthy", ticket=LAB_TICKET, truth="healthy", faults=frozenset(), extended=True)
 LAB_IDS = ["lab_high_latency", "lab_packet_loss", "lab_misleading_dns", "lab_misleading_healthy"]
 
-_EXTRA = set(LAB_IDS) | set(HARD_IDS) | set(FLAKY_IDS) | set(MULTI_IDS) | set(CAMPUS_IDS)
+# Held-out suite (simulator only). Combinations of conditions that no controller rule or prompt was tuned on:
+# the noise alerts combined with blips, intermittent ports and double faults; a persistent fault behind the
+# "intermittent" ticket; and the bigger campus network with noise and double faults. Protocol: run once on frozen
+# code and report whatever comes out; never change a rule after looking at these results.
+_HELDOUT = {
+    "ho_noisy_blip": (NOISY_TICKET, "healthy", frozenset({"noise", "blip"}), (), None),
+    "ho_noisy_flaky_port": (NOISY_TICKET, "port_blocked", frozenset({"noise", "flaky_port"}), (), None),
+    "ho_noisy_multi_dns_port": (NOISY_TICKET, "dns_failure", frozenset({"noise", "dns", "port"}), ("port_blocked",), None),
+    "ho_noisy_multi_dns_route": (NOISY_TICKET, "dns_failure", frozenset({"noise", "dns", "route"}), ("route_failure",), None),
+    "ho_flaky_dns": (FLAKY_TICKET, "dns_failure", frozenset({"dns"}), (), None),
+    "ho_campus_noisy_healthy": (NOISY_TICKET, "healthy", frozenset({"noise"}), (), CAMPUS),
+    "ho_campus_noisy_route": (NOISY_TICKET, "route_failure", frozenset({"noise", "route"}), (), CAMPUS),
+    "ho_campus_multi_dns_port": (TICKET, "dns_failure", frozenset({"dns", "port"}), ("port_blocked",), CAMPUS),
+}
+for _id, (_ticket, _truth, _faults, _also, _topo) in _HELDOUT.items():
+    _kw = {"topology": _topo} if _topo is not None else {}
+    _SCENARIOS[_id] = Scenario(id=_id, ticket=_ticket, truth=_truth, faults=_faults, also=_also, **_kw)
+HELDOUT_IDS = list(_HELDOUT)
+
+_EXTRA = set(LAB_IDS) | set(HELDOUT_IDS) | set(HARD_IDS) | set(FLAKY_IDS) | set(MULTI_IDS) | set(CAMPUS_IDS)
 ALL_IDS = [i for i in _SCENARIOS if i not in _EXTRA]  # default suite: the easy four
 
 
