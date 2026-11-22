@@ -20,10 +20,10 @@ evidence is enough (or a test budget is hit).
 | Experiment runner | `netwing/runner.py`: matrix of scenarios x modes x repeats, equal 12-test budget per mode, JSONL log per run | Built |
 | Statistics | 95% Wilson intervals (correct, false alarms, all faults found), mean +/- 1.96 SE for tests, cost per run | Built |
 | Cost control | Hard USD cap (`--cap`), per-model token prices in `netwing/pricing.json`, run marked INCOMPLETE if the cap would be passed | Built |
-| Testing | pytest, 226 tests, fake LLM client (`tests/fake_client.py`), dry-run stub so the whole pipeline runs with zero API spend | Built |
+| Testing | pytest, 242 tests, fake LLM client (`tests/fake_client.py`), dry-run stub so the whole pipeline runs with zero API spend | Built |
 | Console commands | `netwing` (experiments) and `netwing-ui` (web UI) installed by `pip install -e .`; also runnable as `python -m netwing.demo` / `python -m netwing.webui` | Built, install tested in a clean virtualenv |
 | Lint | ruff (optional: `pip install -e ".[lint]"`; pyflakes and syntax checks in `pyproject.toml`), `requirements.txt` / `requirements-dev.txt` | Built, passes |
-| Continuous integration | GitHub Actions (`.github/workflows/ci.yml`): lint, 226 tests and a dry-run of the pipeline on Python 3.10-3.13, no API key needed | Passed on Python 3.10-3.13, including the Docker build and a smoke test of the UI image (runs #1 and #2) |
+| Continuous integration | GitHub Actions (`.github/workflows/ci.yml`): lint, 242 tests and a dry-run of the pipeline on Python 3.10-3.13, no API key needed | Passed on Python 3.10-3.13, including the Docker build and a smoke test of the UI image (runs #1 and #2) |
 | Containerisation | `Dockerfile` for the web UI (history, reports, simulator runs) | Built and smoke-tested in CI (the UI answers from inside the container); real Kathara/netns labs are not containerised |
 | Lab automation | Bash setup scripts (`setup_linux.sh`, `run_real_lab.sh`), fault-injection script (`labs/inject.sh`) | Built |
 
@@ -48,6 +48,16 @@ Run the UI: `python -m netwing.webui --results results --port 8765`, then open h
 
 ### Held-out suite (simulator only; built, not yet run)
 `python -m netwing.demo --backend sim --suite heldout --repeats 10 --cap 3` runs eight scenarios that no controller rule or prompt was tuned on: the noise alerts combined with a one-off blip or an intermittent port or two faults at once (`ho_noisy_blip`, `ho_noisy_flaky_port`, `ho_noisy_multi_dns_port`, `ho_noisy_multi_dns_route`), a persistent DNS fault behind the "intermittent" ticket (`ho_flaky_dns`), and the bigger campus network with noise and double faults (`ho_campus_noisy_healthy`, `ho_campus_noisy_route`, `ho_campus_multi_dns_port`). Two of the eight are healthy cases. Protocol: run it once on frozen code with the default rules and report whatever comes out; never change a rule after looking at these results (`--auto-cite` is evaluated separately as an opt-in layer). `--suite all` does not include it, and it refuses the real backends.
+
+### Bayesian belief and information gain (analysis layer; built, offline, never changes a decision)
+`netwing/belief.py` keeps a posterior over eight states built from three independent causes (DNS broken, route broken, web port filtered), so two faults at once need no special case. Each relevant test is a noisy reading (a working path fails with probability 0.08, a broken area passes with 0.15; independence given the state is the main simplification). It gives a confidence for the most likely explanation, the marginal probability of each cause, and the **expected information gain** (bits) of the next DNS, connectivity or port check, so it can say which test is worth running next.
+
+`python -m netwing.belief_report results/run-*.jsonl --tau 0.9 0.95 0.99` replays saved logs (no model call, no cost) and compares the first test at which the belief reaches tau with what the agent did.
+
+Findings so far (simulator logs of the final code, plus the real-network logs; see `netwing-auto-cite-evaluation.md`):
+- Evidence versus decision: on the hard suite the baselines' gathered tests give the right diagnosis 100% of the time under the belief, yet the baseline agents answered correctly only 78-80%. Their errors are decision errors, not evidence-gathering errors, which is what an enforced controller addresses.
+- A belief-based stop is conservative: with these (unfitted) noise parameters it reaches 90% confidence in 0-60% of runs, 95% in under 10% (netwing flaky: 45%) and 99% in none, and it was never confidently wrong (0 confident-but-wrong stops across all logs).
+- Limitation: the model does not distinguish the source host. On the real network a DNS check from h2 (which has no resolver) fails on a healthy network; the belief reads it as a DNS fault, so its accuracy on the real-network logs (70-100%) is below the agent's. A source-aware model and fitted noise parameters are the next step.
 
 ### Planned (not built yet)
 Lab scenarios on the real Kathara/netns backends; confirming `--auto-cite` on held-out scenarios and more repeats; a second model; 30+ repeats; running the held-out suite (built) and its report; building and testing the Docker image locally (CI now builds it).
@@ -100,7 +110,7 @@ Scenario suites: three real faults (`dns_failure`, `route_failure`, `port_blocke
 ## Run it (Windows, macOS or Linux; Python 3.10+)
 ```
 pip install -e ".[dev]"
-pytest                                   # 226 tests, no API needed
+pytest                                   # 242 tests, no API needed
 python -m netwing.demo --dry-run         # whole pipeline, zero API spend (stub client)
 ```
 Real model run on the **simulated** network (set the key in your shell, never in a file or chat):
