@@ -18,6 +18,7 @@ _FAULT_CATEGORIES = {
     "packet_loss": {"connectivity"},
 }
 _HEALTHY_NEEDS = {"connectivity", "dns", "port"}
+HEALTHY_STRATEGIES = ("rules", "hybrid", "belief")
 
 
 class Verdict(Enum):
@@ -31,7 +32,18 @@ _ID = re.compile(r"\bE\d+\b")
 
 
 class Controller:
-    def __init__(self, max_tests: int = 8, subject=None, guide_citations: bool = False, auto_cite: bool = False):
+    def __init__(self, max_tests: int = 8, subject=None, guide_citations: bool = False, auto_cite: bool = False,
+                 healthy_strategy: str = "rules", belief_tau: float = 0.85, resolver_hosts=None):
+        if healthy_strategy not in HEALTHY_STRATEGIES:
+            raise ValueError(f"healthy_strategy must be one of {HEALTHY_STRATEGIES}, got {healthy_strategy!r}")
+        if not 0.5 < belief_tau < 1:
+            raise ValueError("belief_tau must be between 0.5 and 1 (exclusive)")
+        # opt-in healthy decision: "rules" (default, published), "hybrid" (rules, or belief once every standing failure
+        # was retested and last passed and is not reproduced), "belief" (experimental: belief alone, ignores failures)
+        self.healthy_strategy = healthy_strategy
+        self.belief_tau = belief_tau
+        self.resolver_hosts = resolver_hosts  # None: every host has a resolver; else DNS readings from other hosts are ignored
+        self.healthy_basis = ""  # why the last accepted/decided healthy verdict was allowed (auditable)
         self.max_tests = max_tests
         self.guide_citations = guide_citations  # opt-in: a rejected fault claim names the ids it could cite
         # opt-in: judge a fault claim by the evidence the run gathered, not by which ids the model happened to cite.
@@ -54,10 +66,12 @@ class Controller:
     # -- helpers ---------------------------------------------------------
     def _relevant(self, r: ToolResult) -> bool:
         """A result counts only if it concerns what the ticket is about."""
+        a = r.args
+        if r.tool == "dns_lookup" and self.resolver_hosts is not None and a.get("src") not in self.resolver_hosts:
+            return False  # opt-in, source-aware: a host with no resolver cannot say anything about the network's DNS
         s = self.subject
         if s is None:
             return True
-        a = r.args
         if r.tool == "dns_lookup":
             return a.get("name") in s.names
         if r.tool in ("ping", "traceroute"):
@@ -116,6 +130,76 @@ class Controller:
                 tried.add("port")
         return tried
 
+    # -- healthy decision strategies (opt-in; "rules" is the published default) ---------
+    def _belief(self):
+        from .belief import Belief  # lazy: the analysis layer is not needed by the default rules
+
+        b = Belief()
+        for _, r in self._valid():
+            b.update(r.category, r.ok, source=r.args.get("src") or r.args.get("node"), resolver_hosts=self.resolver_hosts)
+        return b
+
+    def _healthy_ok(self, failures) -> tuple[bool, str]:
+        """May the run be called healthy while `failures` still stand? Returns (ok, basis); basis names the rule.
+
+        With no standing failure the default rule applies unchanged. With failures standing, only the opt-in strategies
+        can say yes, and only on relevant evidence in which connectivity, DNS and port each passed at least once.
+        hybrid additionally requires that every standing failure was retested by the identical check, that the latest
+        retest passed, and that no failure is reproduced (the same check failing again, or the same area failing
+        from another check): a reproduced failure is never overruled by the belief.
+        """
+        if not failures:
+            passed = {r.category for _, r in self._valid() if r.ok}
+            return (True, "rules: no failure stands") if _HEALTHY_NEEDS <= passed else (False, "")
+        if self.healthy_strategy == "rules":
+            return False, ""
+        passed = {r.category for _, r in self._valid() if r.ok}
+        if not _HEALTHY_NEEDS <= passed:
+            return False, ""
+        p = self._belief().p_healthy()
+        if p < self.belief_tau:
+            return False, ""
+        if self.healthy_strategy == "belief":
+            return True, f"belief (experimental): P(healthy)={p:.3f} >= {self.belief_tau} with {len(failures)} failure(s) standing"
+        if self._reproduced(failures):
+            return False, ""
+        valid = self._valid()
+        order = [e for e, _ in valid]
+        for e, r in failures:
+            later = [x for _, x in valid[order.index(e) + 1:] if self._key(x) == self._key(r)]
+            if not later or not later[-1].ok:
+                return False, ""
+        return True, f"hybrid: P(healthy)={p:.3f} >= {self.belief_tau}; every standing failure retested, latest retest passed, none reproduced"
+
+    def hint(self, res: ToolResult, eid: str) -> str:
+        """Plain-language guidance appended to a tool result (opt-in, netwing mode). It changes no decision: it only
+        says when a result does not count and what the standing failure needs, so the budget is not spent blindly."""
+        parts = []
+        if res.tool == "dns_lookup" and self.resolver_hosts is not None and res.args.get("src") not in self.resolver_hosts:
+            parts.append(f"Note: {eid} was taken from a host with no DNS resolver, so it does not count toward a verdict.")
+        elif self.subject is not None and res.evidence and res.category != "invalid" and not self._relevant(res):
+            parts.append(f"Note: {eid} is not about the ticket's subject, so it does not count toward a verdict.")
+        failures = self._failures()
+        if failures:
+            e, r = failures[0]
+            valid = self._valid()
+            order = [x for x, _ in valid]
+            streak = 0
+            for _, x in valid[order.index(e) + 1:]:
+                if self._key(x) != self._key(r):
+                    continue
+                if not x.ok:
+                    break
+                streak += 1
+            need = max(0, 2 - streak)
+            args = ", ".join(f"{k}={v}" for k, v in r.args.items())
+            parts.append(
+                f"Standing failure {e} ({r.tool} {args}): it clears only if that identical check (same tool, same "
+                f"arguments; a different name or address is a different check) passes {need} more time(s) in a row. "
+                f"{max(0, self.max_tests - self.tests_run)} test(s) left."
+            )
+        return ("\n" + " ".join(parts)) if parts else ""
+
     # -- assurance (read-only; never changes a decision) ------------------
     def assess(self, verdict, fault_type=None, evidence_ids=()) -> tuple[str, str]:
         """How well the evidence backs an answer: ("confirmed" | "suspected" | "inconclusive", reason).
@@ -149,13 +233,12 @@ class Controller:
 
     # -- decisions -------------------------------------------------------
     def decide(self) -> Verdict:
-        valid = self._valid()
         failures = self._failures()
-        if not failures:
-            passed = {r.category for _, r in valid if r.ok}
-            if _HEALTHY_NEEDS <= passed:
-                return Verdict.STOP_HEALTHY
-        elif self._reproduced(failures) and _HEALTHY_NEEDS <= self._areas_tried():
+        ok, basis = self._healthy_ok(failures)
+        if ok:
+            self.healthy_basis = basis
+            return Verdict.STOP_HEALTHY
+        if failures and self._reproduced(failures) and _HEALTHY_NEEDS <= self._areas_tried():
             return Verdict.STOP_FAULT
         if self.tests_run >= self.max_tests:
             return Verdict.STOP_CAP
@@ -170,7 +253,10 @@ class Controller:
                 return False, f"Evidence id {e} does not exist. Cite only ids returned by your tests."
         failures = self._failures()
         if verdict == "healthy":
+            basis = "rules: no failure stands"
             if failures:
+                ok, basis = self._healthy_ok(failures)
+            if failures and not ok:
                 return False, (
                     "You cannot call the network healthy: a test already failed "
                     f"({failures[0][0]}). Run the exact same check on it twice more: if it passes twice it was a "
@@ -178,6 +264,7 @@ class Controller:
                 )
             if not any(r.ok for _, r in self._valid()):
                 return False, "Run at least one test before concluding. No test has passed yet."
+            self.healthy_basis = basis
             return True, ""
         if verdict == "fault":
             needed = _FAULT_CATEGORIES.get(fault_type)

@@ -190,3 +190,18 @@ With `--auto-cite` (same real network, easy suite, 20 runs per mode; log `result
 | netwing `--auto-cite` | 100% [84-100] | 0% | 0 | 5.3 +/- 0.6 |
 
 netwing's no-answers fell from 2 to 0 and it used about 26% fewer tests than plain. Safety check on the simulator hard suite (12 runs per mode): netwing 100% correct, 0% false alarms, 8.3 tests, same as the published run. Caveats: the flag was designed after seeing these failures on the same suite, n=20, and only 5 healthy runs per mode, so the false-alarm interval is wide. It stays opt-in; the published default tables are unchanged.
+
+## Healthy-network strategies (opt-in, exploratory until validated)
+
+The frozen held-out run (default rules) gave NetWing 0% false alarms but 13 of 80 runs with no answer: every one was a
+transient blip or an intermittent port that the identical check cleared only once (the rule needs two) after the agent
+spent 3-6 of its 12 tests on alerts the controller does not count. Defaults are unchanged; three opt-in switches:
+
+- `--retest-hint`: tells the agent which results do not count and what a standing failure needs to clear. Changes no verdict.
+- `--healthy-strategy hybrid`: also accepts "healthy" when every standing failure was retested by the identical check,
+  its latest retest passed, no failure is reproduced, connectivity/DNS/port each passed, and P(healthy) >= `--belief-tau`
+  (default 0.85). The basis is logged (`healthy_basis`). Never touches a fault verdict, STOP_CAP or an unretested failure.
+- `--healthy-strategy belief`: experimental comparator (belief alone, ignores standing failures); not recommended.
+- `--resolver-hosts h1`: source-aware: DNS readings from hosts without a resolver do not count.
+- `--suite fresh`: eight new simulator scenarios for validating the strategies; run once.
+- `python -m netwing.strategy_replay <logs>`: free, exploratory counterfactual replay of the strategies on saved logs.

@@ -148,7 +148,25 @@ for _id, (_ticket, _truth, _faults, _also, _topo) in _HELDOUT.items():
     _SCENARIOS[_id] = Scenario(id=_id, ticket=_ticket, truth=_truth, faults=_faults, also=_also, **_kw)
 HELDOUT_IDS = list(_HELDOUT)
 
-_EXTRA = set(LAB_IDS) | set(HELDOUT_IDS) | set(HARD_IDS) | set(FLAKY_IDS) | set(MULTI_IDS) | set(CAMPUS_IDS)
+# Fresh validation suite (simulator only), written BEFORE any strategy was run on it. New combinations, none of
+# which appear in the held-out suite or the tuning suites: it exists to validate the opt-in healthy strategies,
+# which were explored on the frozen held-out logs. Protocol: run once; no rule or threshold changes afterwards.
+_FRESH = {
+    "fx_blip": (TICKET, "healthy", frozenset({"blip"}), (), None),
+    "fx_noisy_healthy": (NOISY_TICKET, "healthy", frozenset({"noise"}), (), None),
+    "fx_campus_blip": (FLAKY_TICKET, "healthy", frozenset({"blip"}), (), CAMPUS),
+    "fx_flaky_port": (FLAKY_TICKET, "port_blocked", frozenset({"flaky_port"}), (), None),
+    "fx_noisy_dns": (NOISY_TICKET, "dns_failure", frozenset({"noise", "dns"}), (), None),
+    "fx_noisy_route": (NOISY_TICKET, "route_failure", frozenset({"noise", "route"}), (), None),
+    "fx_noisy_port": (NOISY_TICKET, "port_blocked", frozenset({"noise", "port"}), (), None),
+    "fx_noisy_dns_flaky_port": (NOISY_TICKET, "dns_failure", frozenset({"noise", "dns", "flaky_port"}), ("port_blocked",), None),
+}
+for _id, (_ticket, _truth, _faults, _also, _topo) in _FRESH.items():
+    _kw = {"topology": _topo} if _topo is not None else {}
+    _SCENARIOS[_id] = Scenario(id=_id, ticket=_ticket, truth=_truth, faults=_faults, also=_also, **_kw)
+FRESH_IDS = list(_FRESH)
+
+_EXTRA = set(LAB_IDS) | set(FRESH_IDS) | set(HELDOUT_IDS) | set(HARD_IDS) | set(FLAKY_IDS) | set(MULTI_IDS) | set(CAMPUS_IDS)
 ALL_IDS = [i for i in _SCENARIOS if i not in _EXTRA]  # default suite: the easy four
 
 

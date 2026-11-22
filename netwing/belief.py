@@ -61,9 +61,15 @@ class Belief:
             return None
         return 1 - self.miss if f else self.false_fail
 
-    def update(self, category: str, ok: bool) -> bool:
-        """Fold one reading in. Returns False if the category carries no information (nothing changes)."""
+    def update(self, category: str, ok: bool, source: str | None = None, resolver_hosts=None) -> bool:
+        """Fold one reading in. Returns False if the category carries no information (nothing changes).
+
+        Source-aware: when `resolver_hosts` is given, a DNS reading taken from a host that is not in it says
+        nothing about the network's DNS (that host has no resolver to ask), so it is ignored. None: every host counts.
+        """
         if _sees(category, STATES[0]) is None:
+            return False
+        if category == "dns" and resolver_hosts is not None and source is not None and source not in resolver_hosts:
             return False
         for s in STATES:
             pf = self._p_fail(category, s)

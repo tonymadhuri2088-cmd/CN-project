@@ -142,6 +142,7 @@ class RunLog:
     error: str | None = None
     transcript: list = field(default_factory=list)
     tests: list = field(default_factory=list)  # structured per-test record (additive; used by the UI layer only)
+    healthy_basis: str = ""  # why a "healthy" answer was allowed (rule or belief probability); empty for other answers
 
     def to_dict(self) -> dict:
         return asdict(self)
@@ -186,12 +187,17 @@ def run_diagnosis(
     allow_inconclusive: bool = False,
     guide_citations: bool = False,
     auto_cite: bool = False,
+    healthy_strategy: str = "rules",
+    belief_tau: float = 0.85,
+    retest_hint: bool = False,
+    resolver_hosts=None,
 ) -> RunLog:
     if mode not in MODES:
         raise ValueError(f"unknown mode {mode!r}; expected one of {MODES}")
     guard.start_run()
     log = RunLog(scenario_id=scenario.id, mode=mode, model=model)
-    ctrl = Controller(max_tests=max_tests, subject=scenario.subject, guide_citations=guide_citations, auto_cite=auto_cite)  # ids + counting in every mode; gating only in netwing
+    ctrl = Controller(max_tests=max_tests, subject=scenario.subject, guide_citations=guide_citations, auto_cite=auto_cite,
+                      healthy_strategy=healthy_strategy, belief_tau=belief_tau, resolver_hosts=resolver_hosts)  # ids + counting in every mode; gating only in netwing
     gated = mode == "netwing"
     messages = [{"role": "user", "content": scenario.ticket}]
     forced = False
@@ -263,12 +269,15 @@ def run_diagnosis(
                 log.tests.append({"id": eid, "tool": res.tool, "args": dict(res.args), "output": res.output,
                                   "ok": res.ok, "category": res.category, "evidence": res.evidence,
                                   "ts": time.time()})
-                results.append(
-                    {"type": "tool_result", "tool_use_id": u["id"], "content": f"[{eid}] {res.output}"}
-                )
+                text = f"[{eid}] {res.output}"
+                if retest_hint and gated:
+                    text += ctrl.hint(res, eid)  # opt-in guidance; never changes a verdict
+                results.append({"type": "tool_result", "tool_use_id": u["id"], "content": text})
 
             if accepted is not None:
                 log.answer = accepted
+                if gated and accepted.get("verdict") == "healthy":
+                    log.healthy_basis = ctrl.healthy_basis
                 log.status = "answered"
                 break
             if log.rejected_claims >= MAX_REJECTIONS:
