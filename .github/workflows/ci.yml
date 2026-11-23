@@ -23,6 +23,8 @@ jobs:
         run: mypy
       - name: Tests (no API key, no network lab)
         run: python -m pytest -q
+      - name: Every documented number reproduces from the raw logs
+        run: python -m netwing.reproduce check --strict
       - name: Dry run of the whole pipeline (stub client, zero API spend)
         run: python -m netwing.demo --dry-run --suite easy --repeats 1 --out /tmp/ci-run.jsonl
 
