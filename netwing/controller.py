@@ -33,7 +33,8 @@ _ID = re.compile(r"\bE\d+\b")
 
 class Controller:
     def __init__(self, max_tests: int = 8, subject=None, guide_citations: bool = False, auto_cite: bool = False,
-                 healthy_strategy: str = "rules", belief_tau: float = 0.85, resolver_hosts=None):
+                 healthy_strategy: str = "rules", belief_tau: float = 0.85, resolver_hosts=None,
+                 validate_claims: bool = False):
         if healthy_strategy not in HEALTHY_STRATEGIES:
             raise ValueError(f"healthy_strategy must be one of {HEALTHY_STRATEGIES}, got {healthy_strategy!r}")
         if not 0.5 < belief_tau < 1:
@@ -43,6 +44,9 @@ class Controller:
         self.healthy_strategy = healthy_strategy
         self.belief_tau = belief_tau
         self.resolver_hosts = resolver_hosts  # None: every host has a resolver; else DNS readings from other hosts are ignored
+        # opt-in claim-level validation: each secondary fault claim (other_faults) must have its own standing,
+        # reproduced, relevant failure in the matching area; the primary gate is unchanged
+        self.validate_claims = validate_claims
         self.healthy_basis = ""  # why the last accepted/decided healthy verdict was allowed (auditable)
         self.max_tests = max_tests
         self.guide_citations = guide_citations  # opt-in: a rejected fault claim names the ids it could cite
@@ -230,6 +234,47 @@ class Controller:
         if missing:
             return "suspected", f"The fault repeated, but these areas were never tested: {', '.join(sorted(missing))}."
         return "confirmed", "The failure repeated and ping, DNS and port were all tested."
+
+    def validate_other_faults(self, primary: str, other_faults) -> tuple[list[str], list[dict]]:
+        """Check each secondary fault claim against the evidence. Returns (accepted secondary claims, per-claim report).
+
+        confirmed: a relevant failure in the claim's area still stands and was reproduced (accepted).
+        suspected: such a failure stands but was seen only once (not accepted: it may be a blip).
+        unsupported: no relevant standing failure in that area, or an unknown fault type (not accepted).
+        The report records the reason for every claim, including the primary, so a drop is never silent."""
+        if not self.validate_claims:
+            raise RuntimeError("validate_other_faults needs Controller(validate_claims=True)")
+        failures = self._failures()
+        report: list[dict] = []
+
+        def judge(fault_type: str, role: str) -> dict:
+            needed = _FAULT_CATEGORIES.get(fault_type)
+            if needed is None:
+                return {"fault_type": fault_type, "role": role, "status": "unsupported", "accepted": False,
+                        "evidence": [], "reason": "Unknown fault type; no evidence area maps to it."}
+            standing = [(e, r) for e, r in failures if r.category in needed]
+            if not standing:
+                return {"fault_type": fault_type, "role": role, "status": "unsupported", "accepted": False,
+                        "evidence": [], "reason": "No failing check on the ticket's target in this area still stands."}
+            ids = [e for e, _ in standing]
+            if not self._reproduced(standing):
+                return {"fault_type": fault_type, "role": role, "status": "suspected", "accepted": False,
+                        "evidence": ids, "reason": "The failure was seen once only, so it may be a transient blip."}
+            return {"fault_type": fault_type, "role": role, "status": "confirmed", "accepted": True,
+                    "evidence": ids, "reason": "A relevant failure in this area stands and was reproduced."}
+
+        report.append(judge(primary, "primary"))
+        kept: list[str] = []
+        seen = {primary}
+        for ft in other_faults or []:
+            if ft in seen:
+                continue
+            seen.add(ft)
+            j = judge(ft, "secondary")
+            report.append(j)
+            if j["accepted"]:
+                kept.append(ft)
+        return kept, report
 
     # -- decisions -------------------------------------------------------
     def decide(self) -> Verdict:

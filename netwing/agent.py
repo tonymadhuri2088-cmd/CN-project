@@ -142,6 +142,7 @@ class RunLog:
     error: str | None = None
     transcript: list = field(default_factory=list)
     tests: list = field(default_factory=list)  # structured per-test record (additive; used by the UI layer only)
+    claim_report: list = field(default_factory=list)  # per-claim verdicts when claim validation is on (else empty)
     healthy_basis: str = ""  # why a "healthy" answer was allowed (rule or belief probability); empty for other answers
 
     def to_dict(self) -> dict:
@@ -191,13 +192,15 @@ def run_diagnosis(
     belief_tau: float = 0.85,
     retest_hint: bool = False,
     resolver_hosts=None,
+    validate_claims: bool = False,
 ) -> RunLog:
     if mode not in MODES:
         raise ValueError(f"unknown mode {mode!r}; expected one of {MODES}")
     guard.start_run()
     log = RunLog(scenario_id=scenario.id, mode=mode, model=model)
     ctrl = Controller(max_tests=max_tests, subject=scenario.subject, guide_citations=guide_citations, auto_cite=auto_cite,
-                      healthy_strategy=healthy_strategy, belief_tau=belief_tau, resolver_hosts=resolver_hosts)  # ids + counting in every mode; gating only in netwing
+                      healthy_strategy=healthy_strategy, belief_tau=belief_tau, resolver_hosts=resolver_hosts,
+                      validate_claims=validate_claims)  # ids + counting in every mode; gating only in netwing
     gated = mode == "netwing"
     messages = [{"role": "user", "content": scenario.ticket}]
     forced = False
@@ -275,6 +278,10 @@ def run_diagnosis(
                 results.append({"type": "tool_result", "tool_use_id": u["id"], "content": text})
 
             if accepted is not None:
+                if gated and validate_claims and accepted.get("verdict") == "fault":
+                    raw = list(accepted.get("other_faults") or [])
+                    kept, log.claim_report = ctrl.validate_other_faults(accepted.get("fault_type"), raw)
+                    accepted = dict(accepted, other_faults=kept, other_faults_raw=raw)  # the raw claim stays auditable
                 log.answer = accepted
                 if gated and accepted.get("verdict") == "healthy":
                     log.healthy_basis = ctrl.healthy_basis
