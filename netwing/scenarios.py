@@ -187,7 +187,27 @@ for _id, (_ticket, _truth, _faults, _also, _topo) in _FRESH2.items():
     _SCENARIOS[_id] = Scenario(id=_id, ticket=_ticket, truth=_truth, faults=_faults, also=_also, **_kw)
 FRESH2_IDS = list(_FRESH2)
 
-_EXTRA = set(LAB_IDS) | set(FRESH2_IDS) | set(FRESH_IDS) | set(HELDOUT_IDS) | set(HARD_IDS) | set(FLAKY_IDS) | set(MULTI_IDS) | set(CAMPUS_IDS)
+# Third fresh suite (fresh3). FROZEN before the tiered-claims code was written or run. fresh2 showed that dropping every
+# secondary claim without its own reproduced evidence loses real second faults (multi-fault exact 93% -> 13%). The
+# tiered variant keeps such claims as "suspected" instead of dropping them, so fresh3 is multi-fault heavy (where recall
+# matters) plus noisy single faults on both topologies (where unsupported extra claims appear) and one healthy
+# transient-failure network (where nothing may be claimed). Every definition is checked against all earlier suites by tests/test_fresh3_suite.py: none repeats one.
+# Protocol: run once; no rule, flag or threshold changes afterwards.
+_FRESH3 = {
+    "fx3_campus_multi_dns_route": (TICKET, "dns_failure", frozenset({"dns", "route"}), ("route_failure",), CAMPUS),
+    "fx3_campus_noisy_multi_dns_route": (NOISY_TICKET, "dns_failure", frozenset({"noise", "dns", "route"}), ("route_failure",), CAMPUS),
+    "fx3_campus_blip_multi_dns_port": (TICKET, "dns_failure", frozenset({"dns", "port", "blip"}), ("port_blocked",), CAMPUS),
+    "fx3_campus_noisy_flaky_multi_dns_port": (NOISY_TICKET, "dns_failure", frozenset({"noise", "dns", "flaky_port"}), ("port_blocked",), CAMPUS),
+    "fx3_campus_noisy_blip_port": (NOISY_TICKET, "port_blocked", frozenset({"noise", "port", "blip"}), (), CAMPUS),
+    "fx3_blip_route": (TICKET, "route_failure", frozenset({"route", "blip"}), (), None),
+    "fx3_campus_blip": (TICKET, "healthy", frozenset({"blip"}), (), CAMPUS),
+}
+for _id, (_ticket, _truth, _faults, _also, _topo) in _FRESH3.items():
+    _kw = {"topology": _topo} if _topo is not None else {}
+    _SCENARIOS[_id] = Scenario(id=_id, ticket=_ticket, truth=_truth, faults=_faults, also=_also, **_kw)
+FRESH3_IDS = list(_FRESH3)
+
+_EXTRA = set(LAB_IDS) | set(FRESH3_IDS) | set(FRESH2_IDS) | set(FRESH_IDS) | set(HELDOUT_IDS) | set(HARD_IDS) | set(FLAKY_IDS) | set(MULTI_IDS) | set(CAMPUS_IDS)
 ALL_IDS = [i for i in _SCENARIOS if i not in _EXTRA]  # default suite: the easy four
 
 
