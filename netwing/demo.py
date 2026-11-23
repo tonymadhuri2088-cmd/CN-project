@@ -5,6 +5,7 @@ import argparse
 import os
 import shutil
 import time
+from typing import Any
 
 from .budget import CostGuard, load_prices
 from . import provenance
@@ -105,6 +106,7 @@ def main(argv=None) -> int:
         raise SystemExit("the lab and held-out scenarios exist only in the simulator: use --backend sim")
     if args.backend == "kathara" and shutil.which("kathara") is None:
         raise SystemExit("the 'kathara' command was not found; install Kathara and Docker first (see SETUP_LINUX.md)")
+    client: Any  # DryRunClient or anthropic.Anthropic: both expose messages.create
     if args.dry_run:
         from .dryrun import DryRunClient
 
