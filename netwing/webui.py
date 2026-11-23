@@ -2,8 +2,10 @@
 
     python -m netwing.webui --results results --port 8765
 
-Pages: history list with filters, investigation detail (Evidence Explorer, health, report download),
-compare two investigations, simulation lab (scenario browser with ground truth).
+Pages: overview with headline results, history list with filters, investigation detail (Evidence Explorer, health, report download),
+compare two investigations, reproducibility table, simulation lab (scenario browser with ground truth).
+
+    python -m netwing.webui --results results --read-only      # public demo: no runs, no API key is ever read (also NETWING_READONLY=1)
 """
 from __future__ import annotations
 
@@ -14,6 +16,7 @@ import secrets
 import subprocess
 import sys
 import tempfile
+import threading
 import time
 from html import escape as e
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -23,7 +26,9 @@ from .health import compute_health
 from .history import History
 from .pdfexport import render_pdf
 from .report import render_report
+from . import site
 from .scenarios import _SCENARIOS
+from .site import page
 
 _JOB: dict = {}  # the one running or last investigation started from the UI
 _TOKEN = secrets.token_urlsafe(24)  # per-process secret; the Run form carries it, so a page on another site cannot start a run
@@ -32,7 +37,8 @@ _SECURITY_HEADERS = {
     "X-Content-Type-Options": "nosniff",
     "X-Frame-Options": "DENY",
     "Referrer-Policy": "no-referrer",
-    "Content-Security-Policy": "default-src 'none'; style-src 'unsafe-inline'; img-src data:; form-action 'self'; frame-ancestors 'none'",
+    "Content-Security-Policy": "default-src 'none'; style-src 'unsafe-inline'; img-src data:; form-action 'self'; base-uri 'none'; frame-ancestors 'none'",
+    "Permissions-Policy": "geolocation=(), camera=(), microphone=()",
 }
 
 
@@ -42,21 +48,6 @@ def _host_only(value: str) -> str:
     if v.startswith("["):
         return v[1:v.find("]")] if "]" in v else v
     return v.rsplit(":", 1)[0] if v.count(":") == 1 else v
-
-CSS = ("body{font:15px/1.5 system-ui,sans-serif;margin:0;color:#222;background:#f6f7f9}"
-       "nav{background:#1f2a44;padding:10px 24px}nav a{color:#fff;margin-right:18px;text-decoration:none}"
-       "main{max-width:1000px;margin:20px auto;padding:0 16px}table{border-collapse:collapse;width:100%;background:#fff}"
-       "td,th{border:1px solid #d8dbe0;padding:5px 9px;text-align:left;vertical-align:top;font-size:13px}"
-       ".pass{color:#0a6b2d;font-weight:600}.fail{color:#b00020;font-weight:600}.mixed{color:#9a6700;font-weight:600}"
-       ".nm{color:#666}.tag{background:#fff3cd;padding:2px 8px;border-radius:4px;font-size:12px}"
-       ".card{background:#fff;border:1px solid #d8dbe0;border-radius:6px;padding:12px 16px;margin:12px 0}"
-       "code{background:#eef0f3;padding:0 4px}a{color:#1a56c4}")
-
-
-def page(title: str, body: str) -> bytes:
-    return (f"<!doctype html><meta charset='utf-8'><title>{e(title)}</title><style>{CSS}</style>"
-            f"<nav><a href='/'>History</a><a href='/lab'>Simulation lab</a><a href='/new'>Run investigation</a></nav><main>{body}</main>").encode()
-
 
 def _sim(r, model: str = "") -> str:
     tag = "<span class='tag'>SIMULATED</span>" if r else "real"
@@ -80,19 +71,22 @@ def history_page(h: History, q: dict) -> bytes:
     rows, total = h.list_page(sc, mode)
     opts = "<option value=''>All</option>" + "".join(f"<option{' selected' if s == sc else ''}>{e(s)}</option>" for s in h.scenarios())
     modes = "<option value=''>All</option>" + "".join(f"<option{' selected' if m == mode else ''}>{m}</option>" for m in ["plain", "healthy_ok", "netwing"])
-    body = (f"<h1>Investigation history</h1><form>Scenario <select name='scenario'>{opts}</select> "
-            f"Mode <select name='mode'>{modes}</select> <button>Filter</button></form><p>Showing {len(rows)} of {total} (newest first; filter to narrow)</p>"
+    body = (f"<h1>Investigation history</h1><p class='lead'>Every recorded run: the ticket, the tests the agent ran, the verdict and whether it was right.</p>"
+            f"<form class='filters'><label>Scenario <select name='scenario'>{opts}</select></label> "
+            f"<label>Mode <select name='mode'>{modes}</select></label> <button>Filter</button></form>"
+            f"<p class='muted'>Showing {len(rows)} of {total} (newest first; filter to narrow)</p>"
             + summary_html(h, sc) +
             "<form action='/compare'><table><tr><th>A</th><th>B</th><th>Record</th><th>Scenario</th><th>Mode</th>"
             "<th>Verdict</th><th>Correct</th><th>Tests</th><th>Cost</th><th>Network</th></tr>")
     for r in rows:
         rid = e(r["id"])
-        body += (f"<tr><td><input type='radio' name='a' value='{rid}'></td><td><input type='radio' name='b' value='{rid}'></td>"
+        body += (f"<tr><td><input type='radio' name='a' value='{rid}' aria-label='Compare {rid} as A'></td>"
+                 f"<td><input type='radio' name='b' value='{rid}' aria-label='Compare {rid} as B'></td>"
                  f"<td><a href='/run/{quote(r['id'])}'>{rid}</a></td><td>{e(r['scenario'])}</td><td>{e(r['mode'])}</td>"
-                 f"<td>{e(str(r['verdict']))}</td><td>{'yes' if r['correct'] else 'no'}</td><td>{r['tests_run']}</td>"
+                 f"<td>{e(str(r['verdict']))}</td><td class='{'pass' if r['correct'] else 'fail'}'>{'yes' if r['correct'] else 'no'}</td><td>{r['tests_run']}</td>"
                  f"<td>${r['cost']:.4f}</td><td>{_sim(r['simulated'], r.get('model') or '')}</td></tr>")
     body += "</table><p><button>Compare selected A and B</button></p></form>"
-    return page("History", body)
+    return page("History", body, "/history")
 
 
 def run_page(rec: dict) -> bytes:
@@ -129,12 +123,12 @@ def run_page(rec: dict) -> bytes:
             f"<table><tr><th>Indicator</th><th>State</th><th>Measurements</th></tr>{hrows}</table>"
             f"<h2>Evidence explorer</h2>{note}<table><tr><th>Id</th><th>Tool</th><th>Arguments</th><th>Observation</th><th>Result</th></tr>{trows}</table>"
             "<h2>Evidence cited in the answer</h2><ul>" + "".join(f"<li>{e(x)}</li>" for x in rec["claimed_evidence"]) + "</ul>")
-    return page(rec["id"], body)
+    return page(rec["id"], body, "/history")
 
 
 def compare_page(c: dict | None) -> bytes:
     if not c:
-        return page("Compare", "<p>Pick two records on the history page.</p>")
+        return page("Compare", "<p>Pick two records on the <a href='/history'>history page</a>.</p>", "/history")
     a, b = c["a"], c["b"]
 
     def col(r):
@@ -146,7 +140,7 @@ def compare_page(c: dict | None) -> bytes:
     body = (f"<h1>Compare</h1><table><tr><th>A</th><th>B</th></tr><tr>{col(a)}{col(b)}</tr></table>"
             f"<p>{c['shared']} identical test(s) in both.</p><h2>Only in A</h2><ul>{fmt(c['only_a'])}</ul>"
             f"<h2>Only in B</h2><ul>{fmt(c['only_b'])}</ul>")
-    return page("Compare", body)
+    return page("Compare", body, "/history")
 
 
 def lab_page() -> bytes:
@@ -157,10 +151,14 @@ def lab_page() -> bytes:
     note = ("<p>Every scenario has a ground-truth label used for automatic scoring. Observations from these scenarios are "
             "<span class='tag'>SIMULATED</span> unless you run the Kathara or Linux-namespace backend (see SETUP_LINUX.md). "
             "The <code>lab_*</code> scenarios (high latency, packet loss, misleading complaint) exist only in the simulator.</p>")
-    return page("Simulation lab", f"<h1>Simulation lab</h1>{note}<table><tr><th>Scenario</th><th>Ground truth</th><th>Ticket</th><th>Run it</th></tr>{rows}</table>")
+    return page("Simulation lab", f"<h1>Simulation lab</h1>{note}<table><tr><th>Scenario</th><th>Ground truth</th><th>Ticket</th><th>Run it</th></tr>{rows}</table>", "/lab")
 
 
 def new_page(msg: str = "", token: str = "") -> bytes:
+    if site.STATE["read_only"]:
+        return page("Run investigation", "<h1>Runs are disabled</h1><div class='card'>This is a read-only public demo: it cannot start investigations "
+                    "and holds no API key. Browse the <a href='/history'>recorded runs</a>, or run NetWing yourself from the "
+                    f"<a href='{site.REPO_URL}'>repository</a> (the simulator and a no-cost dry-run mode need no key).</div>", "/new")
     opts = "".join(f"<option>{e(sid)}</option>" for sid in _SCENARIOS)
     have_key = bool(os.environ.get("ANTHROPIC_API_KEY"))
     key_note = ("<p>An API key is set in this window: real model runs are possible (cost about $0.002 per run, capped at $0.50 total here).</p>"
@@ -183,7 +181,7 @@ def new_page(msg: str = "", token: str = "") -> bytes:
         state = "finished" if done else "running..."
         body += (f"<div class='card'><b>Last run:</b> {state} (exit {j.returncode})"
                  f"<pre style='white-space:pre-wrap'>{e(tail)}</pre>{link}</div>")
-    return page("Run investigation", body)
+    return page("Run investigation", body, "/new")
 
 
 def start_job(results_dir: str, scenario: str, repeats: int, dry: bool) -> str:
@@ -204,11 +202,15 @@ def start_job(results_dir: str, scenario: str, repeats: int, dry: bool) -> str:
 
 
 def make_handler(h: History, results_dir: str = "results", token: str | None = None,
-                 allowed_hosts: frozenset[str] | None = None):
+                 allowed_hosts: frozenset[str] | None = None, read_only: bool = False, root: str | None = None):
     """Request handler. Requests whose Host header is not in `allowed_hosts` (default: loopback names) are refused, which
     defeats DNS rebinding; POSTs also need the per-process token and, when the browser sends one, a same-origin Origin.
-    Pass allowed_hosts=frozenset({"*"}) only when deliberately serving beyond loopback (for example in a container)."""
+    Pass allowed_hosts=frozenset({"*"}) only when deliberately serving beyond loopback (for example in a container).
+    With read_only=True every POST is refused, the Run page explains why, and no API key is ever consulted: this is the public-demo mode.
+    `root` is the project root holding docs/research/claims.json and the logs the claims name (default: the parent of the results folder)."""
     tok = _TOKEN if token is None else token
+    site.STATE["read_only"] = read_only
+    base = os.path.abspath(root or os.path.join(results_dir, os.pardir))
     hosts = _LOOPBACK if allowed_hosts is None else allowed_hosts
 
     class H(BaseHTTPRequestHandler):
@@ -235,6 +237,8 @@ def make_handler(h: History, results_dir: str = "results", token: str | None = N
                 return self._forbidden("Unrecognised Host header.")
             if u.path != "/new":
                 return self._send(page("Not found", "<p>Not found.</p>"), code=404)
+            if read_only:
+                return self._forbidden("This demo is read-only: starting runs is disabled.")
             origin = self.headers.get("Origin")
             if origin is not None and origin.split("://", 1)[-1] != self.headers.get("Host", ""):
                 return self._forbidden("Cross-origin request refused.")
@@ -253,17 +257,32 @@ def make_handler(h: History, results_dir: str = "results", token: str | None = N
             msg = start_job(results_dir, f.get("scenario", [""])[0], reps, "dry" in f)
             return self._send(new_page(msg, tok))
 
+        def do_HEAD(self):  # uptime monitors and some health checks probe with HEAD; answer with headers only
+            ok = self._host_ok() and urlparse(self.path).path in ("/", "/healthz", "/history", "/results", "/lab", "/new")
+            self.send_response(200 if ok else 404)
+            self.send_header("Content-Type", "text/html; charset=utf-8")
+            self.send_header("Content-Length", "0")
+            for k, v in _SECURITY_HEADERS.items():
+                self.send_header(k, v)
+            self.end_headers()
+
         def do_GET(self):
             if not self._host_ok():
                 return self._forbidden("Unrecognised Host header.")
             u = urlparse(self.path)
             q = parse_qs(u.query)
             if u.path == "/":
+                return self._send(site.overview_page(site.results_data(base)))
+            if u.path == "/healthz":
+                return self._send(b"ok", ctype="text/plain; charset=utf-8")
+            if u.path == "/results":
+                return self._send(site.results_page(site.results_data(base)))
+            if u.path == "/history":
                 return self._send(history_page(h, q))
             if u.path == "/lab":
                 return self._send(lab_page())
             if u.path == "/new":
-                p = _JOB.get("proc")
+                p = None if read_only else _JOB.get("proc")
                 if p is not None and p.poll() is not None and not _JOB.get("imported"):
                     h.import_dir(results_dir)
                     _JOB["imported"] = True
@@ -294,13 +313,18 @@ def main(argv=None) -> None:
     ap.add_argument("--results", default="results")
     ap.add_argument("--port", type=int, default=8765)
     ap.add_argument("--host", default="127.0.0.1", help="bind address; keep 127.0.0.1 unless running in a container")
+    ap.add_argument("--read-only", action="store_true", default=os.environ.get("NETWING_READONLY") == "1",
+                    help="public-demo mode: never start runs or read an API key (also NETWING_READONLY=1)")
+    ap.add_argument("--root", default=None, help="project root holding docs/research/claims.json and the logs it names (default: parent of --results)")
     a = ap.parse_args(argv)
     os.makedirs(a.results, exist_ok=True)
     h = History(os.path.join(a.results, "history.db"))
     print(f"imported {h.import_dir(a.results)} new run(s)")
     hosts = _LOOPBACK | {a.host.lower()} if a.host not in ("0.0.0.0", "::") else frozenset({"*"})
-    print(f"NetWing UI on http://{a.host}:{a.port}  (Ctrl+C to stop)")
-    ThreadingHTTPServer((a.host, a.port), make_handler(h, a.results, allowed_hosts=frozenset(hosts))).serve_forever()
+    base = os.path.abspath(a.root or os.path.join(a.results, os.pardir))
+    threading.Thread(target=site.results_data, args=(base,), daemon=True).start()  # measure the locked numbers once, before the first visitor asks
+    print(f"NetWing UI on http://{a.host}:{a.port}{' (read-only)' if a.read_only else ''}  (Ctrl+C to stop)")
+    ThreadingHTTPServer((a.host, a.port), make_handler(h, a.results, allowed_hosts=frozenset(hosts), read_only=a.read_only, root=a.root)).serve_forever()
 
 
 if __name__ == "__main__":

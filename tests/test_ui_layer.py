@@ -82,7 +82,7 @@ def test_web_ui_pages_respond(tmp_path):
     base = f"http://127.0.0.1:{srv.server_address[1]}"
     rid = h.list()[0]["id"].replace("#", "%23")
     try:
-        for path, needle in [("/", "Investigation history"), ("/lab", "Ground truth"), (f"/run/{rid}", "Evidence explorer"),
+        for path, needle in [("/history", "Investigation history"), ("/", "evidence ledger"), ("/lab", "Ground truth"), (f"/run/{rid}", "Evidence explorer"),
                              (f"/report/{rid}", "Recommendations")]:
             body = urllib.request.urlopen(base + path).read().decode()
             assert needle in body, path
@@ -144,7 +144,7 @@ def test_run_from_ui_dry_run_adds_history_and_is_flagged(tmp_path):
         urllib.request.urlopen(base + "/new").read()  # triggers the import
         rows = h.list()
         assert len(rows) == 3 and all(r["model"] == "dry-run" for r in rows)
-        assert "DRY RUN stub" in urllib.request.urlopen(base + "/").read().decode()
+        assert "DRY RUN stub" in urllib.request.urlopen(base + "/history").read().decode()
     finally:
         srv.shutdown()
 

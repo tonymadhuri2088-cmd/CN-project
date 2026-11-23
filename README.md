@@ -76,6 +76,18 @@ New logs carry an `invocation_id` and a `provenance` block (git commit, configur
 temperature setting), and `--resume` continues a partly finished log under the same configuration only. CI runs the
 check on every push. Which logs are committed and why: [results/README.md](results/README.md).
 
+## Public demo (read-only)
+
+The web UI has a read-only mode for public hosting: it shows the recorded investigations, headline results and the reproducibility table,
+cannot start runs, and never reads an API key.
+
+```bash
+python -m netwing.webui --results results --read-only    # then open http://127.0.0.1:8765
+```
+
+`DEPLOY.md` explains how to host it from the included `Dockerfile` (`render.yaml` for Render, `fly.toml` for Fly.io). Every number on the
+Overview page is recomputed from the raw logs when the server starts.
+
 ## What is in the repository
 | Path | Contents |
 |---|---|

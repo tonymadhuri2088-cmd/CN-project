@@ -1,0 +1,11 @@
+# Render Blueprint: one-click deploy of the read-only demo from the Dockerfile.
+services:
+  - type: web
+    name: netwing-demo
+    runtime: docker
+    plan: free
+    healthCheckPath: /healthz
+    autoDeploy: true
+    envVars:
+      - key: NETWING_READONLY
+        value: "1"

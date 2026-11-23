@@ -1,6 +1,14 @@
-results/
 .git/
+.github/
 .pytest_cache/
+.mypy_cache/
+.ruff_cache/
 __pycache__/
+*.pyc
 *.tar.gz
+*.whl
 .env
+results/*
+!results/*.jsonl
+tests/
+docs/archive/
