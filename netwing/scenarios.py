@@ -166,7 +166,28 @@ for _id, (_ticket, _truth, _faults, _also, _topo) in _FRESH.items():
     _SCENARIOS[_id] = Scenario(id=_id, ticket=_ticket, truth=_truth, faults=_faults, also=_also, **_kw)
 FRESH_IDS = list(_FRESH)
 
-_EXTRA = set(LAB_IDS) | set(FRESH_IDS) | set(HELDOUT_IDS) | set(HARD_IDS) | set(FLAKY_IDS) | set(MULTI_IDS) | set(CAMPUS_IDS)
+# Second fresh suite (simulator only). FROZEN before the claim-level validation rule was written, and before any strategy
+# was run on it. It targets what the first fresh suite missed: noise alerts together with a transient failure on a
+# healthy network (the failure class that exposed the healthy no-answers), on both topologies; a noisy flaky port on the
+# bigger network; noisy single faults on the bigger network (where an unsupported extra fault claim can appear); and a
+# noisy double fault whose second fault IS supported (so a claim validator must keep it). fx2_noisy_blip repeats the
+# held-out ho_noisy_blip definition on purpose (a replication of the failing class with fresh agent runs, not an
+# independent scenario); the campus scenarios are new. Protocol: run once; no rule, flag or threshold changes afterwards.
+_FRESH2 = {
+    "fx2_noisy_blip": (NOISY_TICKET, "healthy", frozenset({"noise", "blip"}), (), None),
+    "fx2_campus_noisy_blip": (NOISY_TICKET, "healthy", frozenset({"noise", "blip"}), (), CAMPUS),
+    "fx2_campus_noisy_flaky_port": (NOISY_TICKET, "port_blocked", frozenset({"noise", "flaky_port"}), (), CAMPUS),
+    "fx2_campus_noisy_dns": (NOISY_TICKET, "dns_failure", frozenset({"noise", "dns"}), (), CAMPUS),
+    "fx2_campus_noisy_port": (NOISY_TICKET, "port_blocked", frozenset({"noise", "port"}), (), CAMPUS),
+    "fx2_campus_noisy_route": (NOISY_TICKET, "route_failure", frozenset({"noise", "route"}), (), CAMPUS),
+    "fx2_campus_noisy_multi_dns_port": (NOISY_TICKET, "dns_failure", frozenset({"noise", "dns", "port"}), ("port_blocked",), CAMPUS),
+}
+for _id, (_ticket, _truth, _faults, _also, _topo) in _FRESH2.items():
+    _kw = {"topology": _topo} if _topo is not None else {}
+    _SCENARIOS[_id] = Scenario(id=_id, ticket=_ticket, truth=_truth, faults=_faults, also=_also, **_kw)
+FRESH2_IDS = list(_FRESH2)
+
+_EXTRA = set(LAB_IDS) | set(FRESH2_IDS) | set(FRESH_IDS) | set(HELDOUT_IDS) | set(HARD_IDS) | set(FLAKY_IDS) | set(MULTI_IDS) | set(CAMPUS_IDS)
 ALL_IDS = [i for i in _SCENARIOS if i not in _EXTRA]  # default suite: the easy four
 
 
