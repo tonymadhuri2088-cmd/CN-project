@@ -35,6 +35,7 @@ def _observed(messages):
 
 
 class DryRunClient:
+    """Scripted stand-in for the model client so the whole pipeline runs with no API calls; its results prove the pipeline only."""
     def __init__(self):
         self.messages = NS(create=self._create)
         self._n = 0

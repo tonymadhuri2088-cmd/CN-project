@@ -12,6 +12,7 @@ import argparse
 import glob
 import json
 from collections import defaultdict
+from typing import Any
 
 from .backend import ToolResult
 from .controller import Controller, Verdict
@@ -32,9 +33,9 @@ def first_stop(run: dict, strategy: str, tau: float, resolver_hosts=None) -> tup
 
 
 def replay(runs: list[dict], configs: list[tuple[str, float]]) -> list[dict]:
-    rows = []
+    rows: list[dict] = []
     for strategy, tau in configs:
-        agg = defaultdict(lambda: {"n": 0, "healthy": 0, "fault": 0, "none": 0, "tests": []})
+        agg: defaultdict[str, dict[str, Any]] = defaultdict(lambda: {"n": 0, "healthy": 0, "fault": 0, "none": 0, "tests": []})
         for run in runs:
             if not run.get("tests"):
                 continue

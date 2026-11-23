@@ -10,10 +10,12 @@ FALLBACK_OUTPUT_TOKENS = 1024
 
 
 class BudgetExceeded(Exception):
+    """Raised when a run or the whole matrix would pass its USD cap."""
     pass
 
 
 def load_prices(path: str) -> dict:
+    """Load per-million-token prices from `pricing.json`; refuses entries whose prices are not filled in."""
     with open(path, encoding="utf-8") as f:
         raw = json.load(f)
     prices = {k: v for k, v in raw.items() if not k.startswith("_")}
@@ -27,6 +29,7 @@ def load_prices(path: str) -> dict:
 
 
 class CostGuard:
+    """Tracks token cost per run and in total against hard USD caps."""
     def __init__(self, total_cap_usd: float, per_run_cap_usd: float, prices: dict):
         self.total_cap = total_cap_usd
         self.run_cap = per_run_cap_usd
@@ -35,9 +38,11 @@ class CostGuard:
         self.spent_run = 0.0
 
     def start_run(self) -> None:
+        """Reset the per-run spend."""
         self.spent_run = 0.0
 
     def add_usage(self, model: str, input_tokens, output_tokens) -> float:
+        """Add one API call's token usage, return its cost, and raise `BudgetExceeded` if a cap would be passed."""
         if model not in self.prices:
             raise KeyError(f"no price configured for model {model!r}")
         p = self.prices[model]

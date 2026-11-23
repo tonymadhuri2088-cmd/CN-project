@@ -16,9 +16,11 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
       - name: Install
-        run: pip install -e ".[dev,lint]"
+        run: pip install -e ".[dev,lint,typecheck]"
       - name: Lint
         run: ruff check netwing tests
+      - name: Type check
+        run: mypy
       - name: Tests (no API key, no network lab)
         run: python -m pytest -q
       - name: Dry run of the whole pipeline (stub client, zero API spend)

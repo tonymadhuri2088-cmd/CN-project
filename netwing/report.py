@@ -40,6 +40,7 @@ def _limitations(rec: dict) -> list[str]:
 
 
 def render_report(rec: dict) -> str:
+    """Standalone HTML investigation report: problem, tests, observations, root cause, evidence, limitations, recommendations."""
     health = compute_health(rec["tests"])
     rows = "".join(
         f"<tr><td>{e(t['id'])}</td><td>{e(t['tool'])}</td><td><code>{e(str(t['args']))}</code></td>"

@@ -42,11 +42,13 @@ def _mean(xs: list[float], digits: int = 1) -> str:
 
 
 def load(path: str) -> list[dict]:
+    """Read a JSONL run log into a list of dicts."""
     with open(path, encoding="utf-8") as fh:
         return [json.loads(line) for line in fh if line.strip()]
 
 
 def metrics(rows: list[dict]) -> dict:
+    """Every reported metric (exact diagnosis, healthy answered healthy, false/missed fault, extra claims, suspected claims, no answer, multi-fault exactness, tests, cost, latency) for a set of runs."""
     n = len(rows)
     healthy = [r for r in rows if get_scenario(r["scenario_id"]).truth == "healthy"]
     faulty = [r for r in rows if get_scenario(r["scenario_id"]).truth != "healthy"]
@@ -114,6 +116,7 @@ HEAD = ("| Config | Mode | Runs | Exact diagnosis | Healthy answered healthy | F
 
 
 def row(label: str, mode: str, rows: list[dict]) -> str:
+    """One markdown table row of `metrics` for a labelled configuration."""
     m = metrics(rows)
     return (f"| {label} | {mode} | {m['runs']} | {_pct(*m['exact'])} | {_pct(*m['healthy_ok'])} | {_pct(*m['false_fault'])} | "
             f"{_pct(*m['missed'])} | {_pct(*m['wrong_type'])} | {_pct(*m['extra'])} | {_pct(*m['no_answer'])} | {_pct(*m['multi_exact'])} | "
@@ -122,6 +125,7 @@ def row(label: str, mode: str, rows: list[dict]) -> str:
 
 
 def main(argv=None) -> int:
+    """CLI entry: print one table per `label=path` log file."""
     p = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     p.add_argument("logs", nargs="+", help="label=path pairs")
     p.add_argument("--mode", default=None, help="only this mode (default: every mode in each file)")

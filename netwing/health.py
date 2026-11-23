@@ -5,6 +5,8 @@ are never counted as healthy. The score is the share of measured indicators that
 """
 from __future__ import annotations
 
+from typing import Any
+
 INDICATORS = {
     "dns_resolution": "DNS resolution",
     "reachability": "Host reachability (ping)",
@@ -26,6 +28,7 @@ def _state(oks: list[bool]) -> str:
 
 
 def compute_health(tests: list[dict]) -> dict:
+    """Network health score from measured values only; indicators never measured are listed separately and never assumed healthy."""
     buckets: dict[str, list[bool]] = {k: [] for k in INDICATORS}
     for t in tests:
         tool, ok = t.get("tool"), bool(t.get("ok"))
@@ -42,7 +45,7 @@ def compute_health(tests: list[dict]) -> dict:
             buckets["port_availability"].append(ok)
         elif tool == "traceroute":
             buckets["routing_path"].append(ok)
-    items = []
+    items: list[dict[str, Any]] = []
     for key, label in INDICATORS.items():
         oks = buckets[key]
         items.append({"key": key, "label": label, "state": _state(oks), "measurements": len(oks),

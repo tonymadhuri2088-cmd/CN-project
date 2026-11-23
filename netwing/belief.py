@@ -55,6 +55,12 @@ class Belief:
         z = sum(self.w.values())
         self.w = {s: v / z for s, v in self.w.items()}
 
+    def _pf(self, category: str, state: tuple) -> float:
+        """`_p_fail` for categories already known to be informative (callers check `_sees` first)."""
+        p = self._p_fail(category, state)
+        assert p is not None, category
+        return p
+
     def _p_fail(self, category: str, state: tuple) -> float | None:
         f = _sees(category, state)
         if f is None:
@@ -72,7 +78,7 @@ class Belief:
         if category == "dns" and resolver_hosts is not None and source is not None and source not in resolver_hosts:
             return False
         for s in STATES:
-            pf = self._p_fail(category, s)
+            pf = self._pf(category, s)
             self.w[s] *= (1 - pf) if ok else pf
         self._norm()
         self.n += 1
@@ -104,12 +110,12 @@ class Belief:
         """Expected entropy reduction (bits) from one more check of this category."""
         if _sees(category, STATES[0]) is None:
             return 0.0
-        p_fail = sum(self.w[s] * self._p_fail(category, s) for s in STATES)
+        p_fail = sum(self.w[s] * self._pf(category, s) for s in STATES)
         gain = self.entropy()
         for fail, p_y in ((True, p_fail), (False, 1 - p_fail)):
             if p_y <= 0:
                 continue
-            post = [self.w[s] * (self._p_fail(category, s) if fail else 1 - self._p_fail(category, s)) / p_y
+            post = [self.w[s] * (self._pf(category, s) if fail else 1 - self._pf(category, s)) / p_y
                     for s in STATES]
             gain -= p_y * _entropy(post)
         return gain

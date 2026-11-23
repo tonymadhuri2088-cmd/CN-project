@@ -10,6 +10,7 @@ _VALID_FAULTS = {"dns_failure", "route_failure", "port_blocked", "high_latency",
 
 @dataclass(frozen=True)
 class Score:
+    """Deterministic outcome of one answer against ground truth (correct, false alarm, no answer, completeness strict and including suspected claims)."""
     correct: bool
     false_alarm: bool
     no_answer: bool
@@ -19,6 +20,7 @@ class Score:
 
 
 def score(scenario: Scenario, answer: dict | None) -> Score:
+    """Score an answer against the scenario's ground truth. No LLM judge; an `inconclusive` verdict counts as no answer, never as a false alarm."""
     if isinstance(answer, dict) and answer.get("verdict") == "inconclusive":
         return Score(correct=False, false_alarm=False, no_answer=True, inconclusive=True)
     if (

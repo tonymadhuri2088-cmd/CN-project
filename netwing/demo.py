@@ -16,6 +16,7 @@ MODES = ["plain", "healthy_ok", "netwing"]
 
 
 def build_parser():
+    """Command-line options of the experiment runner (`python -m netwing.demo`)."""
     p = argparse.ArgumentParser(prog="netwing.demo")
     p.add_argument("--backend", choices=["sim", "kathara", "netns"], default="sim")
     p.add_argument("--repeats", type=int, default=2)
@@ -95,6 +96,7 @@ def _scenario_ids(args):
 
 
 def main(argv=None) -> int:
+    """Run the selected suites and modes, print the summary table and write the JSONL logs."""
     args = build_parser().parse_args(argv)
     if args.backend != "sim" and set(_scenario_ids(args)) & (set(LAB_IDS) | set(HELDOUT_IDS) | set(FRESH_IDS) | set(FRESH2_IDS) | set(FRESH3_IDS)):
         raise SystemExit("the lab and held-out scenarios exist only in the simulator: use --backend sim")

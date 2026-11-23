@@ -1,6 +1,7 @@
 """Persistent investigation history (SQLite, stdlib). Imports run logs (results/*.jsonl) idempotently."""
 from __future__ import annotations
 
+import builtins
 import glob
 import json
 import os
@@ -47,11 +48,11 @@ class History:
         base, _, n = run_id.rpartition("#")
         return (base, int(n) if n.isdigit() else 0)
 
-    def list(self, scenario: str = "", mode: str = "", limit: int = 200) -> list[dict]:
+    def list(self, scenario: str = "", mode: str = "", limit: int = 200) -> builtins.list[dict]:
         rows, _total = self.list_page(scenario, mode, limit)
         return rows
 
-    def list_page(self, scenario: str = "", mode: str = "", limit: int = 200) -> tuple[list[dict], int]:
+    def list_page(self, scenario: str = "", mode: str = "", limit: int = 200) -> tuple[builtins.list[dict], int]:
         """Newest run file first, then run number ascending within a file. Returns (rows, total matching)."""
         q, args = ("SELECT id,scenario,mode,verdict,correct,false_alarm,tests_run,cost,simulated,"
                    "json_extract(record,'$.model') FROM runs WHERE 1=1"), []
@@ -79,7 +80,7 @@ class History:
         kb = {(t["tool"], json.dumps(t["args"], sort_keys=True)) for t in rb["tests"]}
         return {"a": ra, "b": rb, "only_a": sorted(ka - kb), "only_b": sorted(kb - ka), "shared": len(ka & kb)}
 
-    def stats(self, scenario: str = "", real_only: bool = True) -> list[dict]:
+    def stats(self, scenario: str = "", real_only: bool = True) -> builtins.list[dict]:
         """Per-mode totals for the (optionally filtered) runs. Dry-run stub records are excluded by default."""
         q = ("SELECT mode,COUNT(*),SUM(correct),SUM(false_alarm),AVG(tests_run),AVG(cost) FROM runs WHERE 1=1")
         args: list = []
@@ -92,5 +93,5 @@ class History:
         return [dict(mode=m, runs=n, correct=c or 0, false_alarms=f or 0, mean_tests=t, mean_cost=k)
                 for m, n, c, f, t, k in self.db.execute(q, args)]
 
-    def scenarios(self) -> list[str]:
+    def scenarios(self) -> builtins.list[str]:
         return [r[0] for r in self.db.execute("SELECT DISTINCT scenario FROM runs ORDER BY scenario")]

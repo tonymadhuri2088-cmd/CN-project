@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import time
 from dataclasses import asdict, dataclass, field
+from typing import Any
 
 from .backend import NetworkBackend, ToolResult
 from .budget import BudgetExceeded, CostGuard
@@ -131,6 +132,7 @@ FORCE_TEXT = "You have enough information. Give your final answer now with final
 
 @dataclass
 class RunLog:
+    """Everything recorded about one diagnosis run: answer, status, cost, rejected claims, transcript, structured per-test records and claim reports."""
     scenario_id: str
     mode: str
     model: str
@@ -146,6 +148,7 @@ class RunLog:
     healthy_basis: str = ""  # why a "healthy" answer was allowed (rule or belief probability); empty for other answers
 
     def to_dict(self) -> dict:
+        """Plain-dict form of the log, one JSON line per run in `results/`."""
         return asdict(self)
 
 
@@ -195,6 +198,12 @@ def run_diagnosis(
     validate_claims: bool = False,
     tier_claims: bool = False,
 ) -> RunLog:
+    """Run one agent diagnosis of a scenario against a backend and return its `RunLog`.
+
+    The model chooses every tool call. In `netwing` mode the controller observes each result, forces a final answer once it
+    decides to stop, and rejects unsupported claims (at most `MAX_REJECTIONS`, then the run ends with no answer). All modes share the
+    same 12-test budget. Optional flags switch on the opt-in layers (citations, healthy strategy, claim validation and tiering).
+    """
     if mode not in MODES:
         raise ValueError(f"unknown mode {mode!r}; expected one of {MODES}")
     guard.start_run()
@@ -203,7 +212,7 @@ def run_diagnosis(
                       healthy_strategy=healthy_strategy, belief_tau=belief_tau, resolver_hosts=resolver_hosts,
                       validate_claims=validate_claims)  # ids + counting in every mode; gating only in netwing
     gated = mode == "netwing"
-    messages = [{"role": "user", "content": scenario.ticket}]
+    messages: list[dict[str, Any]] = [{"role": "user", "content": scenario.ticket}]
     forced = False
     nudges = 0
     max_turns = max_tests + 6

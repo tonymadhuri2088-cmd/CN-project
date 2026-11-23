@@ -19,6 +19,7 @@ _WEB_PORT = 80
 
 
 class SimNetwork:
+    """Deterministic simulated network with injectable faults (DNS, route, port, noise, blip, flaky port, latency, loss); every output is tagged [SIMULATED]."""
     simulated = True
 
     def __init__(self, scenario: Scenario):
@@ -29,7 +30,7 @@ class SimNetwork:
         self.faults = scenario.faults
         self.routers = t.get("routers", [t["router"]])
         self.hops = t.get("hops", [t["router"]])
-        self._calls = Counter()
+        self._calls: Counter[str] = Counter()
 
     # -- helpers ---------------------------------------------------------
     def _result(self, tool, args, text, ok, category, evidence=True):
@@ -81,6 +82,7 @@ class SimNetwork:
 
     # -- tools -----------------------------------------------------------
     def ping(self, src, dst):
+        """ICMP check from src to dst; behaviour depends on the injected faults."""
         args = {"src": src, "dst": dst}
         node, early = self._check_target("ping", args, src, dst)
         if early:
@@ -98,6 +100,7 @@ class SimNetwork:
         return self._result("ping", args, f"{src} -> {dst}: 3 packets sent, 3 received, 0% loss", True, "connectivity")
 
     def traceroute(self, src, dst):
+        """Path check from src to dst; stops at the hop where a route fault breaks the path."""
         args = {"src": src, "dst": dst}
         node, early = self._check_target("traceroute", args, src, dst)
         if early:
@@ -113,6 +116,7 @@ class SimNetwork:
         return self._result("traceroute", args, "\n".join(lines), True, "connectivity")
 
     def dns_lookup(self, src, name):
+        """Resolve a name from src: SERVFAIL under a DNS fault, a timeout for the noise alert's printer.lab, NXDOMAIN for unknown names."""
         args = {"src": src, "name": name}
         if not self._known(src):
             return self._invalid("dns_lookup", args, f"unknown host {src}")
@@ -125,6 +129,7 @@ class SimNetwork:
         return self._result("dns_lookup", args, f"{name}: NXDOMAIN", False, "dns", evidence=name == "web.lab")
 
     def port_check(self, src, dst, port):
+        """TCP connect from src to dst:port; filtered under a port fault, timed out under a route fault."""
         args = {"src": src, "dst": dst, "port": port}
         node, early = self._check_target("port_check", args, src, dst)
         if early:
@@ -148,6 +153,7 @@ class SimNetwork:
         return self._result("port_check", args, f"{dst}:{port} closed (connection refused)", False, "port", evidence=False)
 
     def show_routes(self, node):
+        """Routing table of a node."""
         args = {"node": node}
         if not self._known(node):
             return self._invalid("show_routes", args, f"unknown node {node}")

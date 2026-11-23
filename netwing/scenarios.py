@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from typing import Any
 
 TOPOLOGY = {
     "hosts": {"h1": "10.0.1.10", "h2": "10.0.2.10"},
@@ -34,6 +35,7 @@ class Subject:
 
 @dataclass(frozen=True)
 class Scenario:
+    """A ticket plus ground truth: the injected faults (`truth` and `also`), the network topology and the subject the controller treats as relevant."""
     id: str
     ticket: str
     truth: str  # dns_failure | route_failure | port_blocked | healthy
@@ -144,7 +146,7 @@ _HELDOUT = {
     "ho_campus_multi_dns_port": (TICKET, "dns_failure", frozenset({"dns", "port"}), ("port_blocked",), CAMPUS),
 }
 for _id, (_ticket, _truth, _faults, _also, _topo) in _HELDOUT.items():
-    _kw = {"topology": _topo} if _topo is not None else {}
+    _kw: dict[str, Any] = {"topology": _topo} if _topo is not None else {}
     _SCENARIOS[_id] = Scenario(id=_id, ticket=_ticket, truth=_truth, faults=_faults, also=_also, **_kw)
 HELDOUT_IDS = list(_HELDOUT)
 
@@ -212,6 +214,7 @@ ALL_IDS = [i for i in _SCENARIOS if i not in _EXTRA]  # default suite: the easy 
 
 
 def get_scenario(scenario_id: str) -> Scenario:
+    """Look up a scenario by id; raises ValueError for an unknown id."""
     try:
         return _SCENARIOS[scenario_id]
     except KeyError:

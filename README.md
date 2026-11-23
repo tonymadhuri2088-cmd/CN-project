@@ -20,10 +20,10 @@ evidence is enough (or a test budget is hit).
 | Experiment runner | `netwing/runner.py`: matrix of scenarios x modes x repeats, equal 12-test budget per mode, JSONL log per run | Built |
 | Statistics | 95% Wilson intervals (correct, false alarms, all faults found), mean +/- 1.96 SE for tests, cost per run | Built |
 | Cost control | Hard USD cap (`--cap`), per-model token prices in `netwing/pricing.json`, run marked INCOMPLETE if the cap would be passed | Built |
-| Testing | pytest, 242 tests, fake LLM client (`tests/fake_client.py`), dry-run stub so the whole pipeline runs with zero API spend | Built |
+| Testing | pytest, 316 tests (+4 real-lab tests skipped unless `NETWING_REAL_LAB=1`), fake LLM client (`tests/fake_client.py`), dry-run stub so the whole pipeline runs with zero API spend | Built |
 | Console commands | `netwing` (experiments) and `netwing-ui` (web UI) installed by `pip install -e .`; also runnable as `python -m netwing.demo` / `python -m netwing.webui` | Built, install tested in a clean virtualenv |
 | Lint | ruff (optional: `pip install -e ".[lint]"`; pyflakes and syntax checks in `pyproject.toml`), `requirements.txt` / `requirements-dev.txt` | Built, passes |
-| Continuous integration | GitHub Actions (`.github/workflows/ci.yml`): lint, 242 tests and a dry-run of the pipeline on Python 3.10-3.13, no API key needed | Passed on Python 3.10-3.13, including the Docker build and a smoke test of the UI image (runs #1 and #2) |
+| Continuous integration | GitHub Actions (`.github/workflows/ci.yml`): lint, the test suite and a dry-run of the pipeline on Python 3.10-3.13, no API key needed | Passed on Python 3.10-3.13, including the Docker build and a smoke test of the UI image (runs #1 and #2) |
 | Containerisation | `Dockerfile` for the web UI (history, reports, simulator runs) | Built and smoke-tested in CI (the UI answers from inside the container); real Kathara/netns labs are not containerised |
 | Lab automation | Bash setup scripts (`setup_linux.sh`, `run_real_lab.sh`), fault-injection script (`labs/inject.sh`) | Built |
 
@@ -46,7 +46,7 @@ Run the UI: `python -m netwing.webui --results results --port 8765`, then open h
 ### Lab suite (Mini Project 2, simulator only)
 `python -m netwing.demo --backend sim --suite lab --repeats 3 --cap 3` runs four extra scenarios with ground truth: `lab_high_latency`, `lab_packet_loss`, `lab_misleading_dns` (ticket says the server is down; the real fault is DNS), `lab_misleading_healthy`. Only these scenarios offer `high_latency` and `packet_loss` as answers; the experiment suites keep exactly the same tools and prompts. `--suite all` does not include the lab.
 
-### Held-out suite (simulator only; built, not yet run)
+### Held-out suite (simulator only; frozen, run once; results in `netwing-heldout-results.md`)
 `python -m netwing.demo --backend sim --suite heldout --repeats 10 --cap 3` runs eight scenarios that no controller rule or prompt was tuned on: the noise alerts combined with a one-off blip or an intermittent port or two faults at once (`ho_noisy_blip`, `ho_noisy_flaky_port`, `ho_noisy_multi_dns_port`, `ho_noisy_multi_dns_route`), a persistent DNS fault behind the "intermittent" ticket (`ho_flaky_dns`), and the bigger campus network with noise and double faults (`ho_campus_noisy_healthy`, `ho_campus_noisy_route`, `ho_campus_multi_dns_port`). Two of the eight are healthy cases. Protocol: run it once on frozen code with the default rules and report whatever comes out; never change a rule after looking at these results (`--auto-cite` is evaluated separately as an opt-in layer). `--suite all` does not include it, and it refuses the real backends.
 
 ### Bayesian belief and information gain (analysis layer; built, offline, never changes a decision)
@@ -60,7 +60,7 @@ Findings so far (simulator logs of the final code, plus the real-network logs; s
 - Limitation: the model does not distinguish the source host. On the real network a DNS check from h2 (which has no resolver) fails on a healthy network; the belief reads it as a DNS fault, so its accuracy on the real-network logs (70-100%) is below the agent's. A source-aware model and fitted noise parameters are the next step.
 
 ### Planned (not built yet)
-Lab scenarios on the real Kathara/netns backends; confirming `--auto-cite` on held-out scenarios and more repeats; a second model; 30+ repeats; running the held-out suite (built) and its report; building and testing the Docker image locally (CI now builds it).
+Lab scenarios on the real Kathara/netns backends; a second model; 30+ repeats for baseline numbers; building and testing the Docker image locally (CI now builds it); a diagnostic-completeness layer (see "Open problem" below) evaluated on a new frozen suite.
 
 ### Lab suite results (Haiku 5.5, simulated, 12 runs per mode, 21 Nov 2026)
 | Mode | Correct [95% CI] | False alarms | Mean tests | Mean cost |
@@ -70,6 +70,46 @@ Lab scenarios on the real Kathara/netns backends; confirming `--auto-cite` on he
 | netwing | 100% [76-100] | 0% [0-56] | 5.4 ±0.8 | $0.0010 |
 
 All modes answered every lab scenario correctly, so there is no accuracy difference here. netwing used fewer tests, but with 12 runs the intervals overlap slightly: read it as a consistent direction, not a proven effect. The lab healthy case has only 3 runs per mode, so no false-alarm claim is made from this suite.
+
+## Claim validation, tiered claims and the fresh2 / fresh3 validations (opt-in; defaults unchanged)
+
+Two more opt-in layers address "extra" fault claims, i.e. the agent naming a second fault the evidence does not support:
+- `--validate-claims`: every claimed fault (primary and each `other_faults` entry) is checked against the ledger. Status is
+  **confirmed** (a standing relevant failure in the matching category, reproduced), **suspected** (standing but seen once) or
+  **unsupported**. Strict mode drops suspected and unsupported claims. The per-claim reasons are logged (`claim_report`) and the
+  original claim list is kept (`other_faults_raw`).
+- `--tier-claims` (implies validation): keeps suspected claims as a separate `suspected_faults` field instead of dropping them.
+  Scoring reports both the strict set (`complete`) and the set including suspected claims (`complete_incl_suspected`).
+
+Each validation used a new frozen scenario suite and pre-registered acceptance criteria (written and committed before the run;
+`netwing-fresh2-preregistration.md`, `netwing-fresh3-preregistration.md`); no rule was tuned on the results.
+`python -m netwing.demo --backend sim --suite fresh2|fresh3 --repeats 15 --cap 3` (simulator only).
+
+| Question | Evidence | Verdict |
+|---|---|---|
+| Does hybrid + retest-hint fix healthy networks the default rules cannot clear? | fresh2: healthy answered healthy 13% to 97% (30 runs, CIs do not overlap); false alarms and missed faults 0%; no-answer 29% to 2%; mean tests 10.0 to 8.5 | Criteria met; stays opt-in (target class, simulator, one model) |
+| Does strict claim validation help? | fresh2: extra-fault claims 56% to 0%, but multi-fault exact 93% to 13%. fresh3: extra 18% to 0%, multi exact 55% to 28% | Not promoted: it removes real second faults along with unsupported ones |
+| Does tiering recover real second faults? | fresh3: multi-fault found counting suspected 65% (needed 80%); extra claims including suspected 18% to 11% (needed 10 points lower) | Criteria not met; not promoted |
+
+What the logs show (fresh3, 60 double-fault runs): both injected faults were confirmed in only 15 runs (tier) and 9 (hybrid + hint + tier);
+in most others one fault was confirmed and the other seen once. The controller stops as soon as one fault is reproduced and ping, DNS and
+port were each tried, so a second fault is confirmed only when the agent happens to test its area twice. Not supported by this evidence:
+that NetWing improves multi-fault detection, or that it solves hallucinated diagnoses in general. Full tables, deviations and an erratum
+are in `netwing-fresh2-results.md` and `netwing-fresh3-results.md`.
+
+`python -m netwing.final_report label=results/<log>.jsonl [label=...] [--mode netwing]` prints the per-configuration table (exact, extra claims, suspected claims, no answer, tests, cost, Wilson 95% intervals).
+
+### Open problem: stopping when one fault is confirmed is not the same as the diagnosis being complete
+The controller has no notion of a fault, only of test categories, and it never schedules a test; the agent chooses every test. It is also
+blind to masking (a route-only network lets a `port_blocked` claim pass as confirmed). A design for a completeness-aware controller
+(per-fault state, controller-owned stopping, controller-authorized test allocation) is outlined in `netwing-dcc-stage-a-audit.md`. It is not built.
+
+### Reproducing and integrity rules
+- Install: `pip install -e ".[dev]"`; `pytest` runs with no API key. Real-model runs need `ANTHROPIC_API_KEY` in the shell only (never in a file or chat).
+- Logs in `results/` are opened in append mode and a run sequence stops on an API error, so one file can hold several invocations: analyse per invocation
+  (or delete the file before a run) and state which you used. `results/` is git-ignored; frozen result logs are committed with `git add -f`.
+- Suites are pinned by tests (`tests/test_fresh2_suite.py`, `tests/test_fresh3_suite.py`, including a non-duplication check across suites). Do not edit a
+  frozen suite or a pre-registered criterion after seeing results; add a new suite instead.
 
 ## Architecture
 
@@ -110,7 +150,8 @@ Scenario suites: three real faults (`dns_failure`, `route_failure`, `port_blocke
 ## Run it (Windows, macOS or Linux; Python 3.10+)
 ```
 pip install -e ".[dev]"
-pytest                                   # 242 tests, no API needed
+pytest                                   # 316 passed, 4 skipped (real-lab parity), no API needed
+ruff check netwing tests && mypy               # lint and type check (pip install -e ".[lint,typecheck]"), both clean
 python -m netwing.demo --dry-run         # whole pipeline, zero API spend (stub client)
 ```
 Real model run on the **simulated** network (set the key in your shell, never in a file or chat):
@@ -128,11 +169,9 @@ Real emulated lab (Linux + Docker only): see `SETUP_LINUX.md`.
 
 ## Honest limits (read before showing numbers)
 - Results on the simulated network are labeled SIMULATED and are a demo, **not** paper evidence.
-- Only four tiny scenarios. The paper needs more fault types, held-out topologies, repeated runs with
-  confidence intervals, and human-checked labels.
-- LLM runs are noisy: use `--repeats 3` or more before drawing any conclusion.
-- The premise (plain Claude over-diagnoses a healthy network) is **unverified** until the first real run.
-  If `plain` never false-alarms, say so; do not hide it.
+- Scenarios are small and simulator-based (one web service; at most two simultaneous faults). The paper needs more fault types, more topologies, human-checked labels and a second model.
+- LLM runs are noisy: behaviourally identical configurations differed by about 20 points on multi-fault recall in fresh3. Use 15-30 repeats and quote per-suite numbers with intervals.
+- The premise (plain Claude over-diagnoses a healthy network) held on the simulator hard suite (plain 80% false alarms) but not on the small real-network easy suite (plain 0%, only 5 healthy runs); it is not established on real networks.
 - The Kathara backend and labs are written but not yet run on real Docker (see `SETUP_LINUX.md`).
 
 ## Hard suite (red-herring alerts)
@@ -152,7 +191,9 @@ a failure as evidence when it concerns the ticket's target (web.lab / 10.0.2.10 
 | `flaky` | `transient_blip` (healthy; one ping lost) and `intermittent_port` (web port alternates filtered/open) |
 | `multi` | two faults at once (`multi_dns_port`, `multi_dns_route`); the table adds "All faults found" |
 | `campus` | the same four cases on 4 hosts, 2 routers, 3 services |
-| `all` | everything |
+| `lab` | four ground-truth scenarios (high latency, packet loss, misleading DNS, misleading healthy); not in `all` |
+| `heldout`, `fresh`, `fresh2`, `fresh3` | frozen validation suites, simulator only, not in `all`; run once each (see the results documents) |
+| `all` | easy, hard, flaky, multi, campus |
 
 The summary shows 95% Wilson confidence intervals. Use `--repeats 10` or more for numbers you can quote.
 

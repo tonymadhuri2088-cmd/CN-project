@@ -67,6 +67,7 @@ def _lines(rec: dict) -> list[tuple[str, str, int]]:
 
 
 def render_pdf(rec: dict) -> bytes:
+    """Render an investigation record as a PDF using a minimal built-in writer (no third-party library)."""
     lines = _lines(rec)
     per_page = (PAGE_H - 2 * MARGIN - 20) // _LEAD
     pages = [lines[i:i + per_page] for i in range(0, len(lines), per_page)] or [[]]

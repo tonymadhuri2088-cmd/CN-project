@@ -67,7 +67,7 @@ def _assurance(run: dict, tests: list, ans: dict, ev: list) -> dict | None:
         return None
     try:
         from .scenarios import get_scenario
-        subject = get_scenario(run.get("scenario_id")).subject
+        subject = get_scenario(run.get("scenario_id") or "").subject
     except Exception:  # unknown scenario id: judge without a subject filter
         subject = None
     ctrl = Controller(max_tests=max(12, len(tests)), subject=subject)
@@ -79,6 +79,7 @@ def _assurance(run: dict, tests: list, ans: dict, ev: list) -> dict | None:
 
 
 def build_record(run: dict, run_id: str) -> dict:
+    """Normalise one run log into the evidence-explorer record (structured tests, evidence ids, assurance level); older logs are rebuilt from the transcript."""
     structured = bool(run.get("tests"))
     tests = run["tests"] if structured else _tests_from_transcript(run.get("transcript", []))
     for t in tests:

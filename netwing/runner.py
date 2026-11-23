@@ -34,6 +34,7 @@ def run_matrix(
     validate_claims: bool = False,
     tier_claims: bool = False,
 ) -> list[RunLog]:
+    """Run scenarios x modes x repeats with an equal test budget per mode, logging one JSON line per run, and stop cleanly when the cost cap would be passed or the API fails."""
     logs: list[RunLog] = []
     with open(out_path, "a", encoding="utf-8") as out:
         for _rep in range(repeats):  # repeats outermost: a partial run stays balanced
@@ -85,6 +86,7 @@ def _spread(xs: list[float]) -> str:
 
 
 def summarize(logs: list[RunLog], simulated: bool, dry_run: bool = False) -> str:
+    """Markdown results tables (95% Wilson intervals for rates, mean +/- 1.96 SE for tests and cost) from a list of run logs."""
     where = "SIMULATED network" if simulated else "real network"
     head = f"## NetWing demo results ({where})"
     if dry_run:

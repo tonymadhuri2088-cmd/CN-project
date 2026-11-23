@@ -9,6 +9,7 @@ CATEGORIES = ("connectivity", "dns", "port", "routing", "invalid")
 
 @dataclass(frozen=True)
 class ToolResult:
+    """One diagnostic tool outcome: the call, its output, whether it passed, its evidence category, and whether a failure counts as proof of a fault."""
     tool: str
     args: dict = field(default_factory=dict)
     output: str = ""
@@ -18,6 +19,10 @@ class ToolResult:
 
 
 class NetworkBackend(Protocol):
+    """Interface every network backend implements (simulator, Linux namespaces, Kathara).
+
+    Methods `ping`, `traceroute`, `dns_lookup`, `port_check` and `show_routes` each return a `ToolResult` and never raise for an ordinary network failure.
+    """
     simulated: bool
 
     def ping(self, src: str, dst: str) -> ToolResult: ...

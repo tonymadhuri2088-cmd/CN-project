@@ -22,6 +22,7 @@ HEALTHY_STRATEGIES = ("rules", "hybrid", "belief")
 
 
 class Verdict(Enum):
+    """What the controller says about the run so far: keep testing, or stop with a fault, healthy or budget-exhausted outcome."""
     CONTINUE = "continue"
     STOP_FAULT = "stop_fault"
     STOP_HEALTHY = "stop_healthy"
@@ -32,6 +33,14 @@ _ID = re.compile(r"\bE\d+\b")
 
 
 class Controller:
+    """Rule-based evidence ledger and gate between the agent and its conclusion.
+
+    Every tool result is numbered (E1, E2, ...). All decisions are recomputed from that ledger: which results are relevant to
+    the ticket's subject, which failures still stand (a failure is cleared only when the identical check later passes twice in a
+    row), which failures are reproduced, and which areas (connectivity, DNS, port) were tried. The controller never runs a test;
+    it only observes results, decides whether to stop (`decide`) and accepts or rejects the agent's final claim (`allow_claim`).
+    All behaviour beyond the published default rules is opt-in through constructor flags.
+    """
     def __init__(self, max_tests: int = 8, subject=None, guide_citations: bool = False, auto_cite: bool = False,
                  healthy_strategy: str = "rules", belief_tau: float = 0.85, resolver_hosts=None,
                  validate_claims: bool = False):
@@ -59,9 +68,11 @@ class Controller:
 
     @property
     def tests_run(self) -> int:
+        """Number of tests observed so far (every tool call counts, including invalid ones)."""
         return len(self._order)
 
     def observe(self, result: ToolResult) -> str:
+        """Record one tool result and return its evidence id (E1, E2, ...)."""
         eid = f"E{len(self._order) + 1}"
         self._results[eid] = result
         self._order.append(eid)
@@ -248,6 +259,7 @@ class Controller:
         report: list[dict] = []
 
         def judge(fault_type: str, role: str) -> dict:
+            """Classify one claimed fault: confirmed, suspected (seen once) or unsupported, with evidence ids and a reason."""
             needed = _FAULT_CATEGORIES.get(fault_type)
             if needed is None:
                 return {"fault_type": fault_type, "role": role, "status": "unsupported", "accepted": False,
@@ -278,6 +290,11 @@ class Controller:
 
     # -- decisions -------------------------------------------------------
     def decide(self) -> Verdict:
+        """Return the stop/continue verdict for the evidence so far.
+
+        Order: healthy (per the configured strategy), then fault (a standing failure is reproduced and connectivity, DNS and port were all
+        tried), then budget (`max_tests` reached), else continue.
+        """
         failures = self._failures()
         ok, basis = self._healthy_ok(failures)
         if ok:
@@ -292,6 +309,12 @@ class Controller:
     def allow_claim(self, verdict: str, fault_type: str, evidence_ids: list[str]) -> tuple[bool, str]:
         # Models cite "[E1]" or "E1: description"; extract the id rather than demand a bare one.
         # An item may also be one long string citing several ids; take every id in it.
+        """Accept or reject the agent's final answer; returns (allowed, message).
+
+        A fault claim must cite existing evidence ids showing a standing, reproduced failure in the matching area (or, with `auto_cite`,
+        have such failures standing), after every area was tried. A healthy claim needs no standing relevant failure and at least one
+        passing check (or the opt-in hybrid rule). A rejection message says what is missing so the agent can keep testing.
+        """
         evidence_ids = [i for e in evidence_ids for i in (_ID.findall(str(e)) or [str(e)])]
         for e in evidence_ids:
             if e not in self._results:

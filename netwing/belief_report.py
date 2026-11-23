@@ -12,6 +12,7 @@ import argparse
 import glob
 import json
 from collections import defaultdict
+from typing import Any
 
 from .backend import ToolResult
 from .belief import Belief, answer_set, truth_set
@@ -25,7 +26,7 @@ def replay_run(run: dict, tau: float = 0.95, **belief_kw) -> dict | None:
     if not tests or any(t.get("category") is None for t in tests):
         return None
     try:
-        scenario = get_scenario(run.get("scenario_id"))
+        scenario = get_scenario(run.get("scenario_id") or "")
     except ValueError:
         return None
     truth = truth_set(scenario)
@@ -33,7 +34,7 @@ def replay_run(run: dict, tau: float = 0.95, **belief_kw) -> dict | None:
     belief = Belief(**belief_kw)
     stop_at = stop_correct = None
     used = 0
-    trace = []
+    trace: list[Any] = []
     for t in tests:
         r = ToolResult(t["tool"], dict(t.get("args") or {}), str(t.get("output", "")), bool(t["ok"]),
                        t["category"], t.get("evidence", True) is not False)
