@@ -2,12 +2,14 @@
 
 [![CI](https://github.com/tonymadhuri2088-cmd/CN-project/actions/workflows/ci.yml/badge.svg)](https://github.com/tonymadhuri2088-cmd/CN-project/actions/workflows/ci.yml)
 ![Python](https://img.shields.io/badge/python-3.10%E2%80%933.13-blue)
-![Tests](https://img.shields.io/badge/tests-356%20passing-brightgreen)
+![Tests](https://img.shields.io/badge/tests-365%20passing-brightgreen)
 ![Types](https://img.shields.io/badge/mypy-clean-brightgreen)
 ![Reproducible](https://img.shields.io/badge/numbers-reproducible%20from%20logs-blue)
 ![Status](https://img.shields.io/badge/status-research%20prototype-orange)
+[![Live demo](https://img.shields.io/badge/live%20demo-netwing--demo.onrender.com-1d4ed8)](https://netwing-demo.onrender.com)
 
 **An evidence-sufficiency controller for LLM network-diagnosis agents.**
+**Live read-only demo: <https://netwing-demo.onrender.com>** (the free host sleeps when idle; the first visit can take about a minute).
 It answers one question: *does the agent have enough evidence to conclude, or is it about to invent a fault?*
 
 LLM troubleshooting agents are known to "find" a fault on a network that is actually healthy. NetWing sits between the
@@ -85,7 +87,7 @@ cannot start runs, and never reads an API key.
 python -m netwing.webui --results results --read-only    # then open http://127.0.0.1:8765
 ```
 
-`DEPLOY.md` explains how to host it from the included `Dockerfile` (`render.yaml` for Render, `fly.toml` for Fly.io). Every number on the
+Live instance: <https://netwing-demo.onrender.com>. `DEPLOY.md` explains how to host it from the included `Dockerfile` (`render.yaml` for Render, `fly.toml` for Fly.io). Every number on the
 Overview page is recomputed from the raw logs when the server starts.
 
 ## What is in the repository
