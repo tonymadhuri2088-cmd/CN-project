@@ -160,3 +160,45 @@ def test_on_a_real_second_fault_is_kept_and_primary_decision_is_unchanged():
     log = run_diagnosis(s, SimNetwork(s), "netwing", FakeClient(script), guard(), "m", 8, validate_claims=True)
     assert log.answer["other_faults"] == ["port_blocked"]
     assert score(s, log.answer).complete
+
+
+# -- tiered claims: suspected secondary claims are kept visibly, not dropped ---------------------------------
+def _multi_script_seen_once():
+    return [
+        [tool_use("a", "ping", src="h1", dst="10.0.2.10")],
+        [tool_use("b", "dns_lookup", src="h1", name="web.lab")],
+        [tool_use("c", "dns_lookup", src="h1", name="web.lab")],
+        [tool_use("d", "port_check", src="h1", dst="10.0.2.10", port=80)],
+        [_answer("f", "dns_failure", ["port_blocked"], ["E2", "E3"])],
+    ]
+
+
+def test_tiered_keeps_a_suspected_real_second_fault_visible_and_scores_it_separately():
+    s = get_scenario("fx2_campus_noisy_multi_dns_port")
+    log = run_diagnosis(s, SimNetwork(s), "netwing", FakeClient(_multi_script_seen_once()), guard(), "m", 8,
+                        validate_claims=True, tier_claims=True)
+    a = log.answer
+    assert a["other_faults"] == [] and a["suspected_faults"] == ["port_blocked"] and a["other_faults_raw"] == ["port_blocked"]
+    sc = score(s, a)
+    assert sc.complete is False and sc.complete_incl_suspected is True
+
+
+def test_tiered_still_drops_unsupported_claims_and_does_not_count_them_as_suspected():
+    s, log = _run("dns_failure", _dns_script(["port_blocked"]), validate_claims=True, tier_claims=True)
+    assert log.answer["other_faults"] == [] and log.answer["suspected_faults"] == []
+    sc = score(s, log.answer)
+    assert sc.complete and sc.complete_incl_suspected
+
+
+def test_a_wrong_suspected_claim_makes_the_inclusive_score_incomplete():
+    s = get_scenario("fx2_campus_noisy_dns")
+    ans = {"verdict": "fault", "fault_type": "dns_failure", "other_faults": [], "suspected_faults": ["port_blocked"]}
+    sc = score(s, ans)
+    assert sc.complete is True and sc.complete_incl_suspected is False
+
+
+def test_without_tiering_no_suspected_list_exists_and_scores_agree():
+    s, log = _run("dns_failure", _dns_script([]), validate_claims=True)
+    assert "suspected_faults" not in log.answer
+    sc = score(s, log.answer)
+    assert sc.complete == sc.complete_incl_suspected

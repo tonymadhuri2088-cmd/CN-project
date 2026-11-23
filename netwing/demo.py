@@ -8,7 +8,7 @@ import time
 
 from .budget import CostGuard, load_prices
 from .runner import run_matrix, summarize
-from .scenarios import ALL_IDS, CAMPUS_IDS, FLAKY_IDS, FRESH2_IDS, FRESH_IDS, HARD_IDS, HELDOUT_IDS, LAB_IDS, MULTI_IDS
+from .scenarios import ALL_IDS, CAMPUS_IDS, FLAKY_IDS, FRESH2_IDS, FRESH3_IDS, FRESH_IDS, HARD_IDS, HELDOUT_IDS, LAB_IDS, MULTI_IDS
 from .sim import SimNetwork
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -23,10 +23,10 @@ def build_parser():
     p.add_argument("--run-cap", type=float, default=0.50, help="hard USD cap per run")
     p.add_argument("--model", default=os.environ.get("NETWING_MODEL", "claude-haiku-5-5"))
     p.add_argument("--dry-run", action="store_true", help="scripted stub client, zero API spend")
-    p.add_argument("--suite", choices=["easy", "hard", "flaky", "multi", "campus", "lab", "heldout", "fresh", "fresh2", "all"], default="easy",
+    p.add_argument("--suite", choices=["easy", "hard", "flaky", "multi", "campus", "lab", "heldout", "fresh", "fresh2", "fresh3", "all"], default="easy",
                    help="easy: four basic cases; hard: plus red-herring alerts; flaky: transient/intermittent; "
                         "multi: two faults at once; campus: bigger network; lab and heldout: simulator-only extra suites; all: easy+hard+flaky+multi+campus")
-    p.add_argument("--scenarios", nargs="+", default=None, choices=ALL_IDS + HARD_IDS + FLAKY_IDS + MULTI_IDS + CAMPUS_IDS + LAB_IDS + HELDOUT_IDS + FRESH_IDS + FRESH2_IDS,
+    p.add_argument("--scenarios", nargs="+", default=None, choices=ALL_IDS + HARD_IDS + FLAKY_IDS + MULTI_IDS + CAMPUS_IDS + LAB_IDS + HELDOUT_IDS + FRESH_IDS + FRESH2_IDS + FRESH3_IDS,
                    help="explicit scenario ids (overrides --suite)")
     p.add_argument("--modes", nargs="+", default=MODES, choices=MODES)
     p.add_argument("--lab-root", default="labs", help="kathara lab folders, one per scenario id")
@@ -55,6 +55,9 @@ def build_parser():
     p.add_argument("--validate-claims", action="store_true",
                    help="netwing mode only: drop secondary fault claims (other_faults) that lack their own reproduced, "
                         "relevant evidence; the primary gate is unchanged and every drop is logged")
+    p.add_argument("--tier-claims", action="store_true",
+                   help="with claim validation: keep a secondary claim backed by a single sighting as a flagged "
+                        "'suspected' fault instead of dropping it (implies --validate-claims)")
     p.add_argument("--resolver-hosts", nargs="+", default=None,
                    help="hosts that have a DNS resolver; the belief ignores DNS readings from any other host "
                         "(default: every host counts)")
@@ -84,6 +87,7 @@ def _scenario_ids(args):
     suites = {"easy": ALL_IDS, "hard": HARD_IDS, "flaky": FLAKY_IDS, "multi": MULTI_IDS, "campus": CAMPUS_IDS}
     suites["all"] = [i for ids in suites.values() for i in ids]  # "all" does not include the lab or held-out suites
     suites["lab"] = LAB_IDS
+    suites["fresh3"] = FRESH3_IDS  # simulator only; frozen before tiered claims were written: run once
     suites["fresh2"] = FRESH2_IDS  # simulator only; frozen before claim validation was written: run once
     suites["fresh"] = FRESH_IDS  # simulator only; validation set for the opt-in healthy strategies: run once
     suites["heldout"] = HELDOUT_IDS  # also not part of "all": run it once on frozen code
@@ -92,7 +96,7 @@ def _scenario_ids(args):
 
 def main(argv=None) -> int:
     args = build_parser().parse_args(argv)
-    if args.backend != "sim" and set(_scenario_ids(args)) & (set(LAB_IDS) | set(HELDOUT_IDS) | set(FRESH_IDS) | set(FRESH2_IDS)):
+    if args.backend != "sim" and set(_scenario_ids(args)) & (set(LAB_IDS) | set(HELDOUT_IDS) | set(FRESH_IDS) | set(FRESH2_IDS) | set(FRESH3_IDS)):
         raise SystemExit("the lab and held-out scenarios exist only in the simulator: use --backend sim")
     if args.backend == "kathara" and shutil.which("kathara") is None:
         raise SystemExit("the 'kathara' command was not found; install Kathara and Docker first (see SETUP_LINUX.md)")
@@ -126,7 +130,7 @@ def main(argv=None) -> int:
         _scenario_ids(args), args.modes, args.repeats, _backend_factory(args), client, guard, model, out,
         inventory=args.inventory, allow_inconclusive=args.allow_inconclusive,
         guide_citations=args.guide_citations, auto_cite=args.auto_cite,
-        healthy_strategy=args.healthy_strategy, belief_tau=args.belief_tau, retest_hint=args.retest_hint, validate_claims=args.validate_claims,
+        healthy_strategy=args.healthy_strategy, belief_tau=args.belief_tau, retest_hint=args.retest_hint, validate_claims=args.validate_claims or args.tier_claims, tier_claims=args.tier_claims,
         resolver_hosts=set(args.resolver_hosts) if args.resolver_hosts else None,
     )
     print(summarize(logs, simulated=args.backend == "sim", dry_run=args.dry_run))

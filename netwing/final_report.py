@@ -68,6 +68,19 @@ def metrics(rows: list[dict]) -> dict:
         claimed = {a.get("fault_type"), *(a.get("other_faults") or [])} - {None, "none"}
         return bool(claimed - truths)
 
+    def exact_incl(r):  # logs written before tiered claims have no such field: it equals the strict score there
+        s = r.get("score") or {}
+        return bool(s.get("complete_incl_suspected", s.get("complete")))
+
+    def extra_incl(r):
+        a = r.get("answer")
+        if not isinstance(a, dict) or a.get("verdict") != "fault":
+            return False
+        sc_ = get_scenario(r["scenario_id"])
+        truths = {sc_.truth, *sc_.also}
+        claimed = {a.get("fault_type"), *(a.get("other_faults") or []), *(a.get("suspected_faults") or [])} - {None, "none"}
+        return bool(claimed - truths)
+
     span = []
     for r in rows:
         ts = [t["ts"] for t in r.get("tests") or [] if "ts" in t]
@@ -81,6 +94,10 @@ def metrics(rows: list[dict]) -> dict:
         "missed": (sum(verdict(r) == "healthy" for r in faulty), len(faulty)),
         "wrong_type": (sum(verdict(r) == "fault" and not sc(r, "correct") for r in faulty), len(faulty)),
         "extra": (sum(extra(r) for r in faulty), len(faulty)),
+        "exact_incl": (sum(exact_incl(r) for r in rows), n),
+        "extra_incl": (sum(extra_incl(r) for r in faulty), len(faulty)),
+        "multi_exact_incl": (sum(exact_incl(r) for r in multi), len(multi)),
+        "suspected_claims": sum(len((r.get("answer") or {}).get("suspected_faults") or []) for r in rows if isinstance(r.get("answer"), dict)),
         "no_answer": (sum(sc(r, "no_answer") for r in rows), n),
         "multi_exact": (sum(sc(r, "complete") for r in multi), len(multi)),
         "multi_partial": (sum(sc(r, "correct") and not sc(r, "complete") for r in multi), len(multi)),
@@ -92,14 +109,16 @@ def metrics(rows: list[dict]) -> dict:
 
 
 HEAD = ("| Config | Mode | Runs | Exact diagnosis | Healthy answered healthy | False fault | Missed fault | Wrong type | "
-        "No answer | Multi exact | Multi partial | Mean tests | Mean cost $ | Mean latency s |")
+        "Extra fault claimed | No answer | Multi exact | Multi partial | Mean tests | Mean cost $ | Mean latency s | "
+        "Exact incl. suspected | Multi exact incl. suspected | Extra incl. suspected | Suspected claims |")
 
 
 def row(label: str, mode: str, rows: list[dict]) -> str:
     m = metrics(rows)
     return (f"| {label} | {mode} | {m['runs']} | {_pct(*m['exact'])} | {_pct(*m['healthy_ok'])} | {_pct(*m['false_fault'])} | "
             f"{_pct(*m['missed'])} | {_pct(*m['wrong_type'])} | {_pct(*m['extra'])} | {_pct(*m['no_answer'])} | {_pct(*m['multi_exact'])} | "
-            f"{_pct(*m['multi_partial'])} | {_mean(m['tests'])} | {_mean(m['cost'], 4)} | {_mean(m['latency'])} |")
+            f"{_pct(*m['multi_partial'])} | {_mean(m['tests'])} | {_mean(m['cost'], 4)} | {_mean(m['latency'])} | "
+            f"{_pct(*m['exact_incl'])} | {_pct(*m['multi_exact_incl'])} | {_pct(*m['extra_incl'])} | {m['suspected_claims']} |")
 
 
 def main(argv=None) -> int:
@@ -107,7 +126,7 @@ def main(argv=None) -> int:
     p.add_argument("logs", nargs="+", help="label=path pairs")
     p.add_argument("--mode", default=None, help="only this mode (default: every mode in each file)")
     a = p.parse_args(argv)
-    lines = [HEAD, "|" + "---|" * 15]
+    lines = [HEAD, "|" + "---|" * 19]
     for spec in a.logs:
         label, _, path = spec.partition("=")
         rows = load(path)

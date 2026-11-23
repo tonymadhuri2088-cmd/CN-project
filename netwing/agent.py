@@ -193,6 +193,7 @@ def run_diagnosis(
     retest_hint: bool = False,
     resolver_hosts=None,
     validate_claims: bool = False,
+    tier_claims: bool = False,
 ) -> RunLog:
     if mode not in MODES:
         raise ValueError(f"unknown mode {mode!r}; expected one of {MODES}")
@@ -282,6 +283,9 @@ def run_diagnosis(
                     raw = list(accepted.get("other_faults") or [])
                     kept, log.claim_report = ctrl.validate_other_faults(accepted.get("fault_type"), raw)
                     accepted = dict(accepted, other_faults=kept, other_faults_raw=raw)  # the raw claim stays auditable
+                    if tier_claims:  # keep claims backed by a single sighting visible, flagged, and scored apart
+                        accepted["suspected_faults"] = [x["fault_type"] for x in log.claim_report
+                                                        if x["role"] == "secondary" and x["status"] == "suspected"]
                 log.answer = accepted
                 if gated and accepted.get("verdict") == "healthy":
                     log.healthy_basis = ctrl.healthy_basis

@@ -40,3 +40,18 @@ def test_cli_prints_a_table(tmp_path, capsys):
     assert main([f"orig={f}"]) == 0
     out = capsys.readouterr().out
     assert "| orig | netwing | 6 |" in out and "Extra fault claimed" in out
+
+
+def test_suspected_claims_are_reported_apart_and_old_logs_fall_back_to_the_strict_score():
+    rows = [
+        run("multi_dns_port", "netwing", {"verdict": "fault", "fault_type": "dns_failure", "other_faults": [],
+                                          "suspected_faults": ["port_blocked"]},
+            dict(sc(True, False), complete_incl_suspected=True)),
+        run("intermittent_port", "netwing", {"verdict": "fault", "fault_type": "port_blocked", "other_faults": [],
+                                             "suspected_faults": ["dns_failure"]},
+            dict(sc(True, True), complete_incl_suspected=False)),
+        run("multi_dns_port", "netwing", {"verdict": "fault", "fault_type": "dns_failure"}, sc(True, True)),  # old log
+    ]
+    m = metrics(rows)
+    assert m["exact_incl"] == (2, 3) and m["extra_incl"] == (1, 3) and m["extra"] == (0, 3)
+    assert m["multi_exact_incl"] == (2, 2) and m["suspected_claims"] == 2

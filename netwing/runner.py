@@ -32,6 +32,7 @@ def run_matrix(
     retest_hint: bool = False,
     resolver_hosts=None,
     validate_claims: bool = False,
+    tier_claims: bool = False,
 ) -> list[RunLog]:
     logs: list[RunLog] = []
     with open(out_path, "a", encoding="utf-8") as out:
@@ -41,7 +42,7 @@ def run_matrix(
                 for mode in modes:
                     backend = backend_factory(scenario)
                     log = run_diagnosis(scenario, backend, mode, client, guard, model, MAX_TESTS[mode], inventory, allow_inconclusive, guide_citations, auto_cite,
-                                         healthy_strategy, belief_tau, retest_hint, resolver_hosts, validate_claims)
+                                         healthy_strategy, belief_tau, retest_hint, resolver_hosts, validate_claims, tier_claims)
                     logs.append(log)
                     rec = log.to_dict()
                     rec["score"] = asdict(score(scenario, log.answer))
