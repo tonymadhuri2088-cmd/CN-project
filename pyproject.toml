@@ -17,6 +17,7 @@ typecheck = ["mypy"]
 [project.scripts]
 netwing = "netwing.demo:main"
 netwing-ui = "netwing.webui:main"
+netwing-reproduce = "netwing.reproduce:main"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

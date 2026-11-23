@@ -6,6 +6,7 @@ import glob
 import json
 import os
 import sqlite3
+import threading
 
 from .records import build_record
 
@@ -13,6 +14,7 @@ from .records import build_record
 class History:
     def __init__(self, db_path: str):
         self.db = sqlite3.connect(db_path, check_same_thread=False)
+        self._lock = threading.RLock()  # one connection is shared by the UI's request threads; serialise access to it
         self.db.execute(
             "CREATE TABLE IF NOT EXISTS runs (id TEXT PRIMARY KEY, scenario TEXT, mode TEXT, verdict TEXT, "
             "correct INTEGER, false_alarm INTEGER, tests_run INTEGER, cost REAL, simulated INTEGER, record TEXT)"
@@ -20,6 +22,10 @@ class History:
         self.db.commit()
 
     def import_dir(self, results_dir: str) -> int:
+        with self._lock:
+            return self._import_dir(results_dir)
+
+    def _import_dir(self, results_dir: str) -> int:
         added = 0
         for path in sorted(glob.glob(os.path.join(results_dir, "run-*.jsonl"))):
             base = os.path.splitext(os.path.basename(path))[0]
@@ -63,13 +69,15 @@ class History:
             q += " AND mode=?"
             args.append(mode)
         cols = ("id", "scenario", "mode", "verdict", "correct", "false_alarm", "tests_run", "cost", "simulated", "model")
-        rows = [dict(zip(cols, r)) for r in self.db.execute(q, args)]
+        with self._lock:
+            rows = [dict(zip(cols, r)) for r in self.db.execute(q, args)]
         rows.sort(key=lambda r: self._order(r["id"])[1])
         rows.sort(key=lambda r: self._order(r["id"])[0], reverse=True)
         return rows[:limit], len(rows)
 
     def get(self, run_id: str) -> dict | None:
-        row = self.db.execute("SELECT record FROM runs WHERE id=?", (run_id,)).fetchone()
+        with self._lock:
+            row = self.db.execute("SELECT record FROM runs WHERE id=?", (run_id,)).fetchone()
         return json.loads(row[0]) if row else None
 
     def compare(self, a: str, b: str) -> dict | None:
@@ -90,8 +98,11 @@ class History:
         if real_only:
             q += " AND COALESCE(json_extract(record,'$.model'),'') != 'dry-run'"
         q += " GROUP BY mode ORDER BY mode"
+        with self._lock:
+            got = self.db.execute(q, args).fetchall()
         return [dict(mode=m, runs=n, correct=c or 0, false_alarms=f or 0, mean_tests=t, mean_cost=k)
-                for m, n, c, f, t, k in self.db.execute(q, args)]
+                for m, n, c, f, t, k in got]
 
     def scenarios(self) -> builtins.list[str]:
-        return [r[0] for r in self.db.execute("SELECT DISTINCT scenario FROM runs ORDER BY scenario")]
+        with self._lock:
+            return [r[0] for r in self.db.execute("SELECT DISTINCT scenario FROM runs ORDER BY scenario")]

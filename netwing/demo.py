@@ -7,6 +7,7 @@ import shutil
 import time
 
 from .budget import CostGuard, load_prices
+from . import provenance
 from .runner import run_matrix, summarize
 from .scenarios import ALL_IDS, CAMPUS_IDS, FLAKY_IDS, FRESH2_IDS, FRESH3_IDS, FRESH_IDS, HARD_IDS, HELDOUT_IDS, LAB_IDS, MULTI_IDS
 from .sim import SimNetwork
@@ -63,6 +64,8 @@ def build_parser():
                    help="hosts that have a DNS resolver; the belief ignores DNS readings from any other host "
                         "(default: every host counts)")
     p.add_argument("--out", default=None)
+    p.add_argument("--resume", action="store_true",
+                   help="continue a partly finished log given with --out: skip runs already done, same configuration only")
     return p
 
 
@@ -128,13 +131,23 @@ def main(argv=None) -> int:
     out = args.out or os.path.join("results", f"run-{time.strftime('%Y%m%d-%H%M%S')}.jsonl")
     os.makedirs(os.path.dirname(out) or ".", exist_ok=True)
     guard = CostGuard(args.cap, args.run_cap, prices)
-    logs = run_matrix(
-        _scenario_ids(args), args.modes, args.repeats, _backend_factory(args), client, guard, model, out,
-        inventory=args.inventory, allow_inconclusive=args.allow_inconclusive,
-        guide_citations=args.guide_citations, auto_cite=args.auto_cite,
-        healthy_strategy=args.healthy_strategy, belief_tau=args.belief_tau, retest_hint=args.retest_hint, validate_claims=args.validate_claims or args.tier_claims, tier_claims=args.tier_claims,
-        resolver_hosts=set(args.resolver_hosts) if args.resolver_hosts else None,
-    )
+    if args.resume and not args.out:
+        raise SystemExit("--resume needs --out pointing at the log to continue")
+    # Everything that changes what a run does goes into the hashed config; budget caps, the output path and the repeat count do not (resuming exists to extend repeats).
+    config = {k: v for k, v in sorted(vars(args).items()) if k not in ("out", "cap", "run_cap", "resume", "repeats")}
+    config["scenario_ids"] = _scenario_ids(args)
+    try:
+        logs = run_matrix(
+            _scenario_ids(args), args.modes, args.repeats, _backend_factory(args), client, guard, model, out,
+            inventory=args.inventory, allow_inconclusive=args.allow_inconclusive,
+            guide_citations=args.guide_citations, auto_cite=args.auto_cite,
+            healthy_strategy=args.healthy_strategy, belief_tau=args.belief_tau, retest_hint=args.retest_hint,
+            validate_claims=args.validate_claims or args.tier_claims, tier_claims=args.tier_claims,
+            resolver_hosts=set(args.resolver_hosts) if args.resolver_hosts else None,
+            provenance=provenance.build(config, model), resume=args.resume,
+        )
+    except ValueError as e:  # a refused resume must say why, not show a traceback
+        raise SystemExit(str(e)) from e
     print(summarize(logs, simulated=args.backend == "sim", dry_run=args.dry_run))
     print(f"\nlogs: {out}   total spend: ${guard.spent_total:.4f} (cap ${args.cap:.2f})")
     return 0

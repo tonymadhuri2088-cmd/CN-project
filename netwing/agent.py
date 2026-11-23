@@ -7,6 +7,7 @@ netwing     healthy_ok prompt + the evidence Controller gating claims and stoppi
 from __future__ import annotations
 
 import time
+import traceback
 from dataclasses import asdict, dataclass, field
 from typing import Any
 
@@ -145,11 +146,26 @@ class RunLog:
     transcript: list = field(default_factory=list)
     tests: list = field(default_factory=list)  # structured per-test record (additive; used by the UI layer only)
     claim_report: list = field(default_factory=list)  # per-claim verdicts when claim validation is on (else empty)
+    error_kind: str = ""  # on status "error": api (network/API failure) | internal (programming bug) | other
+    error_where: str = ""  # file:line of the failing frame, so a bug in this code is not mistaken for a model failure
     healthy_basis: str = ""  # why a "healthy" answer was allowed (rule or belief probability); empty for other answers
 
     def to_dict(self) -> dict:
         """Plain-dict form of the log, one JSON line per run in `results/`."""
         return asdict(self)
+
+
+_INTERNAL_ERRORS = (AttributeError, AssertionError, NameError, TypeError, KeyError, IndexError, ImportError, ZeroDivisionError)
+
+
+def _classify_error(exc: BaseException) -> tuple[str, str]:
+    """('api'|'internal'|'other', 'file:line'). Broad catching is deliberate (a failed call must keep its cost and partial
+    run), but the kind lets a later analysis exclude infrastructure failures and surface genuine bugs."""
+    mod = type(exc).__module__.split(".")[0]
+    kind = "api" if mod in ("anthropic", "httpx", "httpcore", "ssl") or isinstance(exc, OSError) else \
+        "internal" if isinstance(exc, _INTERNAL_ERRORS) else "other"
+    tb = traceback.extract_tb(exc.__traceback__)
+    return kind, f"{tb[-1].filename.rsplit('/', 1)[-1]}:{tb[-1].lineno}" if tb else ""
 
 
 def _execute(backend: NetworkBackend, name: str, args: dict) -> ToolResult:
@@ -313,6 +329,7 @@ def run_diagnosis(
     except Exception as e:  # API/network/backend failure: keep the cost and the partial run
         log.status = "error"
         log.error = f"{type(e).__name__}: {e}"
+        log.error_kind, log.error_where = _classify_error(e)
 
     log.tests_run = ctrl.tests_run
     log.cost_usd = guard.spent_run

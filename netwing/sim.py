@@ -134,7 +134,7 @@ class SimNetwork:
         node, early = self._check_target("port_check", args, src, dst)
         if early:
             return early
-        if not isinstance(port, int) or not 1 <= port <= 65535:
+        if not isinstance(port, int) or isinstance(port, bool) or not 1 <= port <= 65535:
             return self._invalid("port_check", args, f"invalid port {port}")
         timed_out = self._result("port_check", args, f"{dst}:{port} timed out (host unreachable)", False, "port")
         filtered = self._result("port_check", args, f"{dst}:{port} filtered (no response, firewall drop)", False, "port")

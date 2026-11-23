@@ -58,10 +58,17 @@ A read-only architecture audit ([`research/06`](research/06-dcc-architecture-aud
 ## Phase 7. Quality pass (24 Nov)
 Commit `4611f0e`. mypy clean (40 errors fixed) and added to CI; docstrings for the public API; a package overview; README and docs rewritten. Verified behaviour-neutral: the zero-cost pipeline produced identical logs before and after (96 runs), 316 tests passing.
 
+## Phase 8. Comprehensive audit and hardening (24 Nov)
+A read-only audit of the whole repository ([`research/07`](research/07-comprehensive-audit.md)), then its three Essential fixes, each written test-first:
+- **Reproducibility.** `netwing.reproduce` splits append-mode logs into invocations and checks 42 documented numbers (`research/claims.json`) against the raw logs; all 42 reproduce, including fresh2 and fresh3 that had not been recomputed before. The five committed run logs that back them were previously git-ignored and are now tracked. CI runs the check.
+- **Provenance and resume.** New logs carry an invocation id, commit, configuration hash, versions and temperature setting; `--resume` continues a partly finished log under the same configuration only.
+- **Security.** Web UI Host allow-list, same-origin check, per-process form token and security headers; Kathara `dns_lookup` argument validation; locked SQLite access; error taxonomy in run logs. A concurrency test failed before the fix.
+- **Verified unchanged:** old and new code gave identical controller decisions on 228 scripted runs across eight suites; 356 tests, ruff and mypy clean.
+
 ## Where it stands
 | | |
 |---|---|
-| Code | about 3,000 lines of Python in `netwing/`, 316 tests (+4 real-lab tests), ruff and mypy clean, CI on Python 3.10-3.13 |
+| Code | about 3,400 lines of Python in `netwing/`, 356 tests (real-lab parity tests skip without root), 88% branch coverage, ruff and mypy clean, CI on Python 3.10-3.13 |
 | Supported by evidence | fewer tests and lower cost across suites; 0 false alarms on healthy networks in every netwing run on the simulator; hybrid + retest-hint fixes the healthy-network no-answer failure (fresh2) |
 | Reported as negative | `--guide-citations`; strict claim validation; tiered claims; the hybrid's claimed healthy gain was not visible on the first fresh suite |
 | Not claimed | that NetWing improves multi-fault detection, or that it eliminates hallucinated diagnoses |

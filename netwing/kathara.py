@@ -13,6 +13,8 @@ NAMES = {"web.lab": "10.0.2.10"}
 _RESOLVE_FAIL = ("Temporary failure in name resolution", "Name or service not known", "Unknown host", "unknown host",
                  "getaddrinfo", "lookup failed")
 EXEC_TIMEOUT_S = 20
+# A DNS name handed to `dig` must look like a hostname: no whitespace, quotes or leading '-' (which dig would read as an option).
+_HOSTNAME = re.compile(r"^(?=.{1,253}$)[A-Za-z0-9]([A-Za-z0-9_-]{0,62})(\.[A-Za-z0-9_-]{1,63})*$")
 
 
 def build_exec_cmd(lab_dir: str, device: str, command: str) -> list[str]:
@@ -117,6 +119,8 @@ class KatharaNetwork:
         args = {"src": src, "name": name}
         if not self._known(src):
             return self._invalid("dns_lookup", args, f"unknown host {src}")
+        if not isinstance(name, str) or not _HOSTNAME.fullmatch(name):
+            return self._invalid("dns_lookup", args, "invalid host name")
         out, timed_out = self._exec(src, f"dig +time=2 +tries=1 {name}")
         unasked = ("NXDOMAIN" in out or "REFUSED" in out) and name != "web.lab"  # a missing unrelated name proves nothing
         return ToolResult("dns_lookup", args, out, (not timed_out) and parse_dns(out), "dns", evidence=not unasked)
@@ -128,7 +132,7 @@ class KatharaNetwork:
         t = self._dst(dst)
         if t is None:
             return self._invalid("port_check", args, f"unknown host {dst}")
-        if not isinstance(port, int) or not 1 <= port <= 65535:
+        if not isinstance(port, int) or isinstance(port, bool) or not 1 <= port <= 65535:
             return self._invalid("port_check", args, f"invalid port {port}")
         out, timed_out = self._exec(src, f"sh -c 'nc -vz -w 3 {t[0]} {port}; echo rc=$?'")
         if self._resolve_failed(out):

@@ -1,0 +1,422 @@
+[
+ {
+  "id": "heldout.default.plain.false_fault",
+  "doc": "docs/research/03-heldout-and-healthy-strategies.md",
+  "file": "results/run-20261123-033549.jsonl",
+  "invocation": 0,
+  "mode": "plain",
+  "metric": "false_fault",
+  "k": 8,
+  "n": 20
+ },
+ {
+  "id": "heldout.default.healthy_ok.false_fault",
+  "doc": "docs/research/03-heldout-and-healthy-strategies.md",
+  "file": "results/run-20261123-033549.jsonl",
+  "invocation": 0,
+  "mode": "healthy_ok",
+  "metric": "false_fault",
+  "k": 12,
+  "n": 20
+ },
+ {
+  "id": "heldout.default.netwing.false_fault",
+  "doc": "docs/research/03-heldout-and-healthy-strategies.md",
+  "file": "results/run-20261123-033549.jsonl",
+  "invocation": 0,
+  "mode": "netwing",
+  "metric": "false_fault",
+  "k": 0,
+  "n": 20
+ },
+ {
+  "id": "heldout.default.netwing.no_answer",
+  "doc": "docs/research/03-heldout-and-healthy-strategies.md",
+  "file": "results/run-20261123-033549.jsonl",
+  "invocation": 0,
+  "mode": "netwing",
+  "metric": "no_answer",
+  "k": 13,
+  "n": 80
+ },
+ {
+  "id": "heldout.default.netwing.tests",
+  "doc": "docs/research/03-heldout-and-healthy-strategies.md",
+  "file": "results/run-20261123-033549.jsonl",
+  "invocation": 0,
+  "mode": "netwing",
+  "metric": "tests",
+  "mean": 8.3,
+  "digits": 1
+ },
+ {
+  "id": "heldout.autocite.plain.false_fault",
+  "doc": "docs/research/03-heldout-and-healthy-strategies.md",
+  "file": "results/run-20261123-041031.jsonl",
+  "invocation": 0,
+  "mode": "plain",
+  "metric": "false_fault",
+  "k": 14,
+  "n": 20
+ },
+ {
+  "id": "heldout.autocite.healthy_ok.false_fault",
+  "doc": "docs/research/03-heldout-and-healthy-strategies.md",
+  "file": "results/run-20261123-041031.jsonl",
+  "invocation": 0,
+  "mode": "healthy_ok",
+  "metric": "false_fault",
+  "k": 13,
+  "n": 20
+ },
+ {
+  "id": "heldout.autocite.netwing.false_fault",
+  "doc": "docs/research/03-heldout-and-healthy-strategies.md",
+  "file": "results/run-20261123-041031.jsonl",
+  "invocation": 0,
+  "mode": "netwing",
+  "metric": "false_fault",
+  "k": 0,
+  "n": 20
+ },
+ {
+  "id": "heldout.autocite.netwing.no_answer",
+  "doc": "docs/research/03-heldout-and-healthy-strategies.md",
+  "file": "results/run-20261123-041031.jsonl",
+  "invocation": 0,
+  "mode": "netwing",
+  "metric": "no_answer",
+  "k": 10,
+  "n": 80
+ },
+ {
+  "id": "heldout.autocite.netwing.tests",
+  "doc": "docs/research/03-heldout-and-healthy-strategies.md",
+  "file": "results/run-20261123-041031.jsonl",
+  "invocation": 0,
+  "mode": "netwing",
+  "metric": "tests",
+  "mean": 8.4,
+  "digits": 1
+ },
+ {
+  "id": "fresh.plain.healthy_ok",
+  "doc": "docs/research/03-heldout-and-healthy-strategies.md",
+  "file": "results/run-20261123-044618.jsonl",
+  "invocation": 0,
+  "mode": "plain",
+  "metric": "healthy_ok",
+  "k": 18,
+  "n": 30
+ },
+ {
+  "id": "fresh.healthy_ok.healthy_ok",
+  "doc": "docs/research/03-heldout-and-healthy-strategies.md",
+  "file": "results/run-20261123-044618.jsonl",
+  "invocation": 0,
+  "mode": "healthy_ok",
+  "metric": "healthy_ok",
+  "k": 20,
+  "n": 30
+ },
+ {
+  "id": "fresh.netwing.healthy_ok",
+  "doc": "docs/research/03-heldout-and-healthy-strategies.md",
+  "file": "results/run-20261123-044618.jsonl",
+  "invocation": 0,
+  "mode": "netwing",
+  "metric": "healthy_ok",
+  "k": 30,
+  "n": 30
+ },
+ {
+  "id": "fresh.netwing.tests",
+  "doc": "docs/research/03-heldout-and-healthy-strategies.md",
+  "file": "results/run-20261123-044618.jsonl",
+  "invocation": 0,
+  "mode": "netwing",
+  "metric": "tests",
+  "mean": 9.2,
+  "digits": 1
+ },
+ {
+  "id": "hard.rerun.plain.false_fault",
+  "doc": "docs/research/02-auto-cite-and-inconclusive.md",
+  "file": "results/run-20261122-024239.jsonl",
+  "invocation": 0,
+  "mode": "plain",
+  "metric": "false_fault",
+  "k": 9,
+  "n": 10
+ },
+ {
+  "id": "hard.rerun.healthy_ok.false_fault",
+  "doc": "docs/research/02-auto-cite-and-inconclusive.md",
+  "file": "results/run-20261122-024239.jsonl",
+  "invocation": 0,
+  "mode": "healthy_ok",
+  "metric": "false_fault",
+  "k": 8,
+  "n": 10
+ },
+ {
+  "id": "hard.rerun.netwing.false_fault",
+  "doc": "docs/research/02-auto-cite-and-inconclusive.md",
+  "file": "results/run-20261122-024239.jsonl",
+  "invocation": 0,
+  "mode": "netwing",
+  "metric": "false_fault",
+  "k": 0,
+  "n": 10
+ },
+ {
+  "id": "hard.rerun.netwing.tests",
+  "doc": "docs/research/02-auto-cite-and-inconclusive.md",
+  "file": "results/run-20261122-024239.jsonl",
+  "invocation": 0,
+  "mode": "netwing",
+  "metric": "tests",
+  "mean": 8.2,
+  "digits": 1
+ },
+ {
+  "id": "realnet.netwing.no_answer",
+  "doc": "docs/research/01-results-log.md",
+  "file": "results/run-20261121-110330.jsonl",
+  "invocation": 0,
+  "mode": "netwing",
+  "metric": "no_answer",
+  "k": 2,
+  "n": 20
+ },
+ {
+  "id": "realnet.netwing.tests",
+  "doc": "docs/research/01-results-log.md",
+  "file": "results/run-20261121-110330.jsonl",
+  "invocation": 0,
+  "mode": "netwing",
+  "metric": "tests",
+  "mean": 5.6,
+  "digits": 1
+ },
+ {
+  "id": "fresh2.original.healthy_ok",
+  "doc": "docs/research/04-fresh2-validation.md",
+  "file": "results/fresh2_original.jsonl",
+  "invocation": 2,
+  "mode": "netwing",
+  "metric": "healthy_ok",
+  "k": 4,
+  "n": 30
+ },
+ {
+  "id": "fresh2.original.extra",
+  "doc": "docs/research/04-fresh2-validation.md",
+  "file": "results/fresh2_original.jsonl",
+  "invocation": 2,
+  "mode": "netwing",
+  "metric": "extra",
+  "k": 40,
+  "n": 71
+ },
+ {
+  "id": "fresh2.original.no_answer",
+  "doc": "docs/research/04-fresh2-validation.md",
+  "file": "results/fresh2_original.jsonl",
+  "invocation": 2,
+  "mode": "netwing",
+  "metric": "no_answer",
+  "k": 29,
+  "n": 101
+ },
+ {
+  "id": "fresh2.original.multi_exact",
+  "doc": "docs/research/04-fresh2-validation.md",
+  "file": "results/fresh2_original.jsonl",
+  "invocation": 2,
+  "mode": "netwing",
+  "metric": "multi_exact",
+  "k": 13,
+  "n": 14
+ },
+ {
+  "id": "fresh2.original.tests",
+  "doc": "docs/research/04-fresh2-validation.md",
+  "file": "results/fresh2_original.jsonl",
+  "invocation": 2,
+  "mode": "netwing",
+  "metric": "tests",
+  "mean": 10.0,
+  "digits": 1
+ },
+ {
+  "id": "fresh2.hybrid_hint.healthy_ok",
+  "doc": "docs/research/04-fresh2-validation.md",
+  "file": "results/fresh2_hybrid_hint.jsonl",
+  "invocation": 1,
+  "mode": "netwing",
+  "metric": "healthy_ok",
+  "k": 29,
+  "n": 30
+ },
+ {
+  "id": "fresh2.hybrid_hint.extra",
+  "doc": "docs/research/04-fresh2-validation.md",
+  "file": "results/fresh2_hybrid_hint.jsonl",
+  "invocation": 1,
+  "mode": "netwing",
+  "metric": "extra",
+  "k": 33,
+  "n": 75
+ },
+ {
+  "id": "fresh2.hybrid_hint.no_answer",
+  "doc": "docs/research/04-fresh2-validation.md",
+  "file": "results/fresh2_hybrid_hint.jsonl",
+  "invocation": 1,
+  "mode": "netwing",
+  "metric": "no_answer",
+  "k": 2,
+  "n": 105
+ },
+ {
+  "id": "fresh2.hybrid_hint.multi_exact",
+  "doc": "docs/research/04-fresh2-validation.md",
+  "file": "results/fresh2_hybrid_hint.jsonl",
+  "invocation": 1,
+  "mode": "netwing",
+  "metric": "multi_exact",
+  "k": 13,
+  "n": 15
+ },
+ {
+  "id": "fresh2.hybrid_hint.tests",
+  "doc": "docs/research/04-fresh2-validation.md",
+  "file": "results/fresh2_hybrid_hint.jsonl",
+  "invocation": 1,
+  "mode": "netwing",
+  "metric": "tests",
+  "mean": 8.5,
+  "digits": 1
+ },
+ {
+  "id": "fresh2.validate.extra",
+  "doc": "docs/research/04-fresh2-validation.md",
+  "file": "results/fresh2_validate.jsonl",
+  "invocation": 1,
+  "mode": "netwing",
+  "metric": "extra",
+  "k": 0,
+  "n": 75
+ },
+ {
+  "id": "fresh2.validate.multi_exact",
+  "doc": "docs/research/04-fresh2-validation.md",
+  "file": "results/fresh2_validate.jsonl",
+  "invocation": 1,
+  "mode": "netwing",
+  "metric": "multi_exact",
+  "k": 2,
+  "n": 15
+ },
+ {
+  "id": "fresh2.validate.no_answer",
+  "doc": "docs/research/04-fresh2-validation.md",
+  "file": "results/fresh2_validate.jsonl",
+  "invocation": 1,
+  "mode": "netwing",
+  "metric": "no_answer",
+  "k": 30,
+  "n": 105
+ },
+ {
+  "id": "fresh2.validate.tests",
+  "doc": "docs/research/04-fresh2-validation.md",
+  "file": "results/fresh2_validate.jsonl",
+  "invocation": 1,
+  "mode": "netwing",
+  "metric": "tests",
+  "mean": 9.9,
+  "digits": 1
+ },
+ {
+  "id": "fresh3.original.extra",
+  "doc": "docs/research/05-fresh3-tiered-claims.md",
+  "file": "results/fresh3_original.jsonl",
+  "invocation": 0,
+  "mode": "netwing",
+  "metric": "extra",
+  "k": 16,
+  "n": 90
+ },
+ {
+  "id": "fresh3.original.multi_exact",
+  "doc": "docs/research/05-fresh3-tiered-claims.md",
+  "file": "results/fresh3_original.jsonl",
+  "invocation": 0,
+  "mode": "netwing",
+  "metric": "multi_exact",
+  "k": 33,
+  "n": 60
+ },
+ {
+  "id": "fresh3.original.tests",
+  "doc": "docs/research/05-fresh3-tiered-claims.md",
+  "file": "results/fresh3_original.jsonl",
+  "invocation": 0,
+  "mode": "netwing",
+  "metric": "tests",
+  "mean": 8.8,
+  "digits": 1
+ },
+ {
+  "id": "fresh3.tier.multi_exact",
+  "doc": "docs/research/05-fresh3-tiered-claims.md",
+  "file": "results/fresh3_tier.jsonl",
+  "invocation": 0,
+  "mode": "netwing",
+  "metric": "multi_exact",
+  "k": 15,
+  "n": 60
+ },
+ {
+  "id": "fresh3.tier.multi_exact_incl_suspected",
+  "doc": "docs/research/05-fresh3-tiered-claims.md",
+  "file": "results/fresh3_tier.jsonl",
+  "invocation": 0,
+  "mode": "netwing",
+  "metric": "multi_exact_incl",
+  "k": 39,
+  "n": 60
+ },
+ {
+  "id": "fresh3.tier.tests",
+  "doc": "docs/research/05-fresh3-tiered-claims.md",
+  "file": "results/fresh3_tier.jsonl",
+  "invocation": 0,
+  "mode": "netwing",
+  "metric": "tests",
+  "mean": 8.6,
+  "digits": 1
+ },
+ {
+  "id": "fresh3.combined.multi_exact",
+  "doc": "docs/research/05-fresh3-tiered-claims.md",
+  "file": "results/fresh3_all.jsonl",
+  "invocation": 0,
+  "mode": "netwing",
+  "metric": "multi_exact",
+  "k": 9,
+  "n": 60
+ },
+ {
+  "id": "fresh3.combined.multi_exact_incl_suspected",
+  "doc": "docs/research/05-fresh3-tiered-claims.md",
+  "file": "results/fresh3_all.jsonl",
+  "invocation": 0,
+  "mode": "netwing",
+  "metric": "multi_exact_incl",
+  "k": 34,
+  "n": 60
+ }
+]

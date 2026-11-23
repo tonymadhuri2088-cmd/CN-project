@@ -127,8 +127,12 @@ def test_run_from_ui_dry_run_adds_history_and_is_flagged(tmp_path):
     threading.Thread(target=srv.serve_forever, daemon=True).start()
     base = f"http://127.0.0.1:{srv.server_address[1]}"
     try:
-        assert "Run an investigation" in urllib.request.urlopen(base + "/new").read().decode()
-        data = urllib.parse.urlencode({"scenario": "dns_failure", "repeats": "1", "dry": "1"}).encode()
+        form = urllib.request.urlopen(base + "/new").read().decode()
+        assert "Run an investigation" in form
+        import re
+
+        token = re.search(r"name='token' value='([^']+)'", form).group(1)  # the form carries the per-process token
+        data = urllib.parse.urlencode({"scenario": "dns_failure", "repeats": "1", "dry": "1", "token": token}).encode()
         assert "Started" in urllib.request.urlopen(base + "/new", data).read().decode()
         from netwing import webui
 

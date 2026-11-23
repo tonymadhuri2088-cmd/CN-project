@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import json
+import os
 from dataclasses import asdict
 from typing import Callable
 
@@ -33,14 +34,25 @@ def run_matrix(
     resolver_hosts=None,
     validate_claims: bool = False,
     tier_claims: bool = False,
+    provenance: dict | None = None,
+    resume: bool = False,
 ) -> list[RunLog]:
-    """Run scenarios x modes x repeats with an equal test budget per mode, logging one JSON line per run, and stop cleanly when the cost cap would be passed or the API fails."""
+    """Run scenarios x modes x repeats with an equal test budget per mode, logging one JSON line per run, and stop cleanly when the cost cap would be passed or the API fails.
+
+    ``provenance`` (see ``netwing.provenance.build``) is written into every record. With ``resume=True`` the runs already
+    in ``out_path`` (same provenance configuration, not ending in error/budget) are skipped and the rest are appended
+    under the same invocation id; resuming under a different configuration, or from a log without provenance, is refused."""
     logs: list[RunLog] = []
+    done: set[tuple[int, str, str]] = set()
+    if resume:
+        provenance, done = _resume_state(out_path, provenance)
     with open(out_path, "a", encoding="utf-8") as out:
         for _rep in range(repeats):  # repeats outermost: a partial run stays balanced
             for sid in scenario_ids:
                 scenario = get_scenario(sid)
                 for mode in modes:
+                    if (_rep, sid, mode) in done:
+                        continue
                     backend = backend_factory(scenario)
                     log = run_diagnosis(scenario, backend, mode, client, guard, model, MAX_TESTS[mode], inventory, allow_inconclusive, guide_citations, auto_cite,
                                          healthy_strategy, belief_tau, retest_hint, resolver_hosts, validate_claims, tier_claims)
@@ -48,11 +60,40 @@ def run_matrix(
                     rec = log.to_dict()
                     rec["score"] = asdict(score(scenario, log.answer))
                     rec["simulated"] = bool(getattr(backend, "simulated", False))
+                    rec["repeat"] = _rep
+                    if provenance is not None:
+                        rec["invocation_id"] = provenance["invocation_id"]
+                        rec["provenance"] = provenance
                     out.write(json.dumps(rec) + "\n")
                     out.flush()
                     if log.status in ("budget", "error"):
                         return logs
     return logs
+
+
+def _resume_state(out_path: str, provenance: dict | None) -> tuple[dict, set[tuple[int, str, str]]]:
+    """Validate an existing log for resumption; returns (provenance to keep writing, keys already completed)."""
+    if provenance is None:
+        raise ValueError("resume needs provenance (netwing.provenance.build) to check the configuration matches")
+    if not os.path.exists(out_path):
+        return provenance, set()
+    done: set[tuple[int, str, str]] = set()
+    inv_id = None
+    with open(out_path, encoding="utf-8") as fh:
+        for line in fh:
+            if not line.strip():
+                continue
+            rec = json.loads(line)
+            prev = rec.get("provenance")
+            if not prev or "repeat" not in rec:
+                raise ValueError(f"{out_path} has records without provenance; it cannot be resumed safely")
+            if prev["config_hash"] != provenance["config_hash"]:
+                raise ValueError(f"{out_path} was written with a different configuration; refusing to resume "
+                                 f"(old {prev['config_hash'][:10]}, new {provenance['config_hash'][:10]})")
+            inv_id = prev["invocation_id"]
+            if rec.get("status") not in ("budget", "error"):
+                done.add((rec["repeat"], rec["scenario_id"], rec["mode"]))
+    return (dict(provenance, invocation_id=inv_id) if inv_id else provenance), done
 
 
 def _pct(n: int, d: int) -> str:

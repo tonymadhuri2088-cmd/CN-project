@@ -8,7 +8,9 @@ compare two investigations, simulation lab (scenario browser with ground truth).
 from __future__ import annotations
 
 import argparse
+import hmac
 import os
+import secrets
 import subprocess
 import sys
 import tempfile
@@ -24,6 +26,22 @@ from .report import render_report
 from .scenarios import _SCENARIOS
 
 _JOB: dict = {}  # the one running or last investigation started from the UI
+_TOKEN = secrets.token_urlsafe(24)  # per-process secret; the Run form carries it, so a page on another site cannot start a run
+_LOOPBACK = frozenset({"localhost", "127.0.0.1", "::1"})
+_SECURITY_HEADERS = {
+    "X-Content-Type-Options": "nosniff",
+    "X-Frame-Options": "DENY",
+    "Referrer-Policy": "no-referrer",
+    "Content-Security-Policy": "default-src 'none'; style-src 'unsafe-inline'; img-src data:; form-action 'self'; frame-ancestors 'none'",
+}
+
+
+def _host_only(value: str) -> str:
+    """Host name without port from a Host header or an Origin netloc (handles [::1]:8765)."""
+    v = (value or "").strip().lower()
+    if v.startswith("["):
+        return v[1:v.find("]")] if "]" in v else v
+    return v.rsplit(":", 1)[0] if v.count(":") == 1 else v
 
 CSS = ("body{font:15px/1.5 system-ui,sans-serif;margin:0;color:#222;background:#f6f7f9}"
        "nav{background:#1f2a44;padding:10px 24px}nav a{color:#fff;margin-right:18px;text-decoration:none}"
@@ -142,7 +160,7 @@ def lab_page() -> bytes:
     return page("Simulation lab", f"<h1>Simulation lab</h1>{note}<table><tr><th>Scenario</th><th>Ground truth</th><th>Ticket</th><th>Run it</th></tr>{rows}</table>")
 
 
-def new_page(msg: str = "") -> bytes:
+def new_page(msg: str = "", token: str = "") -> bytes:
     opts = "".join(f"<option>{e(sid)}</option>" for sid in _SCENARIOS)
     have_key = bool(os.environ.get("ANTHROPIC_API_KEY"))
     key_note = ("<p>An API key is set in this window: real model runs are possible (cost about $0.002 per run, capped at $0.50 total here).</p>"
@@ -150,7 +168,7 @@ def new_page(msg: str = "") -> bytes:
     dry = "" if have_key else " checked disabled"
     body = (f"<h1>Run an investigation</h1>{msg}{key_note}"
             "<p>Runs the scenario in the simulator with all three modes (plain, healthy_ok, netwing). Results appear in History.</p>"
-            f"<form method='post' action='/new'>Scenario <select name='scenario'>{opts}</select> "
+            f"<form method='post' action='/new'><input type='hidden' name='token' value='{e(token)}'>Scenario <select name='scenario'>{opts}</select> "
             "Repeats <select name='repeats'><option>1</option><option>2</option><option>3</option></select> "
             f"<label><input type='checkbox' name='dry' value='1'{dry}> dry run (scripted stub, no API, not a real diagnosis)</label> "
             "<button>Start</button></form>")
@@ -185,7 +203,14 @@ def start_job(results_dir: str, scenario: str, repeats: int, dry: bool) -> str:
     return "<p>Started.</p>"
 
 
-def make_handler(h: History, results_dir: str = "results"):
+def make_handler(h: History, results_dir: str = "results", token: str | None = None,
+                 allowed_hosts: frozenset[str] | None = None):
+    """Request handler. Requests whose Host header is not in `allowed_hosts` (default: loopback names) are refused, which
+    defeats DNS rebinding; POSTs also need the per-process token and, when the browser sends one, a same-origin Origin.
+    Pass allowed_hosts=frozenset({"*"}) only when deliberately serving beyond loopback (for example in a container)."""
+    tok = _TOKEN if token is None else token
+    hosts = _LOOPBACK if allowed_hosts is None else allowed_hosts
+
     class H(BaseHTTPRequestHandler):
         def log_message(self, *a):  # quiet
             pass
@@ -193,26 +218,44 @@ def make_handler(h: History, results_dir: str = "results"):
         def _send(self, body: bytes, ctype="text/html; charset=utf-8", code=200, extra=None):
             self.send_response(code)
             self.send_header("Content-Type", ctype)
-            for k, v in (extra or {}).items():
+            for k, v in {**_SECURITY_HEADERS, **(extra or {})}.items():
                 self.send_header(k, v)
             self.end_headers()
             self.wfile.write(body)
 
+        def _host_ok(self) -> bool:
+            return "*" in hosts or _host_only(self.headers.get("Host", "")) in hosts
+
+        def _forbidden(self, why: str):
+            return self._send(page("Forbidden", f"<p class='fail'>{e(why)}</p>"), code=403)
+
         def do_POST(self):
             u = urlparse(self.path)
+            if not self._host_ok():
+                return self._forbidden("Unrecognised Host header.")
             if u.path != "/new":
                 return self._send(page("Not found", "<p>Not found.</p>"), code=404)
-            n = int(self.headers.get("Content-Length") or 0)
-            f = parse_qs(self.rfile.read(min(n, 4096)).decode("utf-8", "replace"))
+            origin = self.headers.get("Origin")
+            if origin is not None and origin.split("://", 1)[-1] != self.headers.get("Host", ""):
+                return self._forbidden("Cross-origin request refused.")
+            try:
+                n = int(self.headers.get("Content-Length") or 0)
+            except ValueError:
+                return self._send(page("Bad request", "<p>Bad Content-Length.</p>"), code=400)
+            f = parse_qs(self.rfile.read(max(0, min(n, 4096))).decode("utf-8", "replace"))
+            if not hmac.compare_digest(f.get("token", [""])[0].encode(), tok.encode()):
+                return self._forbidden("Missing or wrong form token; reload the page and try again.")
             try:
                 reps = int(f.get("repeats", ["1"])[0])
             except ValueError:
                 reps = 1
             _JOB.pop("imported", None)
             msg = start_job(results_dir, f.get("scenario", [""])[0], reps, "dry" in f)
-            return self._send(new_page(msg))
+            return self._send(new_page(msg, tok))
 
         def do_GET(self):
+            if not self._host_ok():
+                return self._forbidden("Unrecognised Host header.")
             u = urlparse(self.path)
             q = parse_qs(u.query)
             if u.path == "/":
@@ -224,7 +267,7 @@ def make_handler(h: History, results_dir: str = "results"):
                 if p is not None and p.poll() is not None and not _JOB.get("imported"):
                     h.import_dir(results_dir)
                     _JOB["imported"] = True
-                return self._send(new_page())
+                return self._send(new_page(token=tok))
             if u.path.startswith("/run/"):
                 rec = h.get(unquote(u.path[5:]))
                 return self._send(run_page(rec) if rec else page("Not found", "<p>No such record.</p>"), code=200 if rec else 404)
@@ -255,8 +298,9 @@ def main(argv=None) -> None:
     os.makedirs(a.results, exist_ok=True)
     h = History(os.path.join(a.results, "history.db"))
     print(f"imported {h.import_dir(a.results)} new run(s)")
+    hosts = _LOOPBACK | {a.host.lower()} if a.host not in ("0.0.0.0", "::") else frozenset({"*"})
     print(f"NetWing UI on http://{a.host}:{a.port}  (Ctrl+C to stop)")
-    ThreadingHTTPServer((a.host, a.port), make_handler(h, a.results)).serve_forever()
+    ThreadingHTTPServer((a.host, a.port), make_handler(h, a.results, allowed_hosts=frozenset(hosts))).serve_forever()
 
 
 if __name__ == "__main__":

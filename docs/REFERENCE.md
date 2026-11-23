@@ -248,3 +248,35 @@ spent 3-6 of its 12 tests on alerts the controller does not count. Defaults are 
 - `--resolver-hosts h1`: source-aware: DNS readings from hosts without a resolver do not count.
 - `--suite fresh`: eight new simulator scenarios for validating the strategies; run once.
 - `python -m netwing.strategy_replay <logs>`: free, exploratory counterfactual replay of the strategies on saved logs.
+
+## Reproducibility, provenance and security (added 24 Nov)
+
+**Reproduce every documented number.** `docs/research/claims.json` ties each quoted figure to a log file, an invocation
+inside it, a mode and a metric.
+
+```bash
+python -m netwing.reproduce inventory                 # every results/*.jsonl split into invocations
+python -m netwing.reproduce check --strict            # exit 1 if any documented number differs or a log is missing
+python -m netwing.reproduce table results/fresh2_original.jsonl#2 --mode netwing
+```
+
+An invocation boundary is a gap of more than 10 minutes between consecutive runs (older logs) or a recorded
+`invocation_id` (new logs). Metrics are those of `netwing.final_report`.
+
+**Provenance.** Every record written by `netwing.demo` carries `invocation_id`, `repeat` and a `provenance` block:
+start time, the full configuration and its SHA-256, model, temperature (`null` = API default; the agent never sets
+one), git commit and dirty flag, Python, platform, `netwing` and `anthropic` versions. The configuration hash excludes
+the output path, the cost caps and the repeat count.
+
+**Resume.** `python -m netwing.demo ... --out results/x.jsonl --repeats 5 --resume` skips runs already in the log
+(keyed by repeat, scenario, mode), retries runs that ended in `error` or `budget`, and appends under the same
+invocation id. It refuses a log written under a different configuration or without provenance.
+
+**Error taxonomy.** A run that ends in `status: error` records `error_kind` (`api` for network or API failures,
+`internal` for programming errors such as `AttributeError`, `other`) and `error_where` (file and line), so a bug in this
+code is not mistaken for a model failure.
+
+**Web UI protections.** Requests with a `Host` other than loopback (or the `--host` you passed) get 403; `POST /new`
+needs the per-process token carried by the form and, when the browser sends an `Origin`, the same origin; responses
+carry `nosniff`, `X-Frame-Options: DENY`, `Referrer-Policy: no-referrer` and a Content-Security-Policy. See
+[SECURITY.md](../SECURITY.md).

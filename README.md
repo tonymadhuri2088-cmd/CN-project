@@ -2,8 +2,9 @@
 
 [![CI](https://github.com/tonymadhuri2088-cmd/CN-project/actions/workflows/ci.yml/badge.svg)](https://github.com/tonymadhuri2088-cmd/CN-project/actions/workflows/ci.yml)
 ![Python](https://img.shields.io/badge/python-3.10%E2%80%933.13-blue)
-![Tests](https://img.shields.io/badge/tests-316%20passing-brightgreen)
+![Tests](https://img.shields.io/badge/tests-356%20passing-brightgreen)
 ![Types](https://img.shields.io/badge/mypy-clean-brightgreen)
+![Reproducible](https://img.shields.io/badge/numbers-reproducible%20from%20logs-blue)
 ![Status](https://img.shields.io/badge/status-research%20prototype-orange)
 
 **An evidence-sufficiency controller for LLM network-diagnosis agents.**
@@ -36,6 +37,10 @@ prompt-only baseline ("the network may be healthy"). Full tables: [docs/research
 | Multi-fault (20): all faults found / tests | 70% / 10.3 | 70% / 9.8 | **95% / 7.0** |
 | Real Linux network, easy (20): tests | 7.2 | 7.3 | **5.3** (with `--auto-cite`) |
 
+The hard row is the first-round run (a re-run gave 78% / 90% for plain and 80% / 80% for `healthy_ok`: the baselines are
+statistically indistinguishable). Every number in these tables can be regenerated from the raw logs, see
+[Reproduce the numbers](#reproduce-the-numbers).
+
 What is **not** claimed: that NetWing improves multi-fault detection in general, or that it eliminates hallucinated
 diagnoses. Rules were first tuned on these suites, so later results come from **frozen, pre-registered** suites
 (held-out, fresh2, fresh3). Those showed one confirmed improvement (opt-in hybrid + retest hint: healthy networks
@@ -45,7 +50,7 @@ answered correctly 13% to 97%) and several honest negatives (strict claim valida
 ## Quick start (Python 3.10+, no API key needed)
 ```bash
 pip install -e ".[dev]"
-pytest                                  # 316 passed, 4 skipped (real-lab parity)
+pytest                                  # 356 tests; real-lab parity tests skip without root
 python -m netwing.demo --dry-run        # whole pipeline with a scripted stub: zero API spend
 python -m netwing.webui --results results --port 8765   # investigation UI at http://127.0.0.1:8765
 ```
@@ -58,6 +63,19 @@ python -m netwing.demo --backend sim --suite hard --repeats 3 --cap 3
 `--cap` is a hard USD limit; a run that would pass it stops and is marked INCOMPLETE. Real network labs (Linux
 namespaces, Kathara): see [SETUP_LINUX.md](SETUP_LINUX.md).
 
+## Reproduce the numbers
+Run logs are append-mode and can hold several invocations, so a number is only meaningful with its file, invocation,
+mode and metric. `docs/research/claims.json` records exactly that for every documented figure, and one command checks
+all of them against the raw logs in `results/`:
+```bash
+python -m netwing.reproduce check --strict      # 42 documented numbers vs the raw logs; exit 1 on any difference
+python -m netwing.reproduce inventory           # each log split into its invocations
+python -m netwing.reproduce table results/fresh2_original.jsonl#2
+```
+New logs carry an `invocation_id` and a `provenance` block (git commit, configuration hash, Python and package versions,
+temperature setting), and `--resume` continues a partly finished log under the same configuration only. CI runs the
+check on every push. Which logs are committed and why: [results/README.md](results/README.md).
+
 ## What is in the repository
 | Path | Contents |
 |---|---|
@@ -66,11 +84,12 @@ namespaces, Kathara): see [SETUP_LINUX.md](SETUP_LINUX.md).
 | `netwing/sim.py`, `netns.py`, `kathara.py` | Backends: simulator, real Linux namespaces, Kathara labs |
 | `netwing/scenarios.py`, `scoring.py` | Scenario suites with ground truth; deterministic scoring (no LLM judge) |
 | `netwing/belief.py`, `belief_report.py`, `strategy_replay.py` | Bayesian belief and information gain; offline analysis of saved logs |
-| `netwing/final_report.py` | Per-configuration metrics tables with Wilson intervals |
+| `netwing/final_report.py`, `reproduce.py`, `provenance.py` | Metrics tables with Wilson intervals; regenerate and lock every documented number; run provenance |
 | `netwing/webui.py`, `records.py`, `health.py`, `history.py`, `report.py`, `pdfexport.py` | Investigation UI, evidence explorer, health score, history, HTML and PDF reports |
-| `tests/` | 316 tests with a fake LLM client; frozen suites are pinned by tests |
+| `tests/` | 356 tests with a fake LLM client; frozen suites and every documented number are pinned by tests |
 | `docs/` | [Project history](docs/PROJECT_HISTORY.md), [research results](docs/research/), [full reference](docs/REFERENCE.md) |
-| `results/` | Raw JSONL run logs (frozen logs are committed) |
+| `results/` | Raw JSONL run logs that back documented numbers ([index](results/README.md)) |
+| `SECURITY.md` | Threat model, secret handling, web UI protections, spend limits |
 
 ## Experiment integrity
 - **Opt-in everything.** Defaults are the published rules; every later layer (`--auto-cite`, `--healthy-strategy hybrid`,
@@ -80,7 +99,11 @@ namespaces, Kathara): see [SETUP_LINUX.md](SETUP_LINUX.md).
   changed after results exist.
 - **Negative results are reported**, and corrections are recorded as errata rather than silent edits.
 - **Deterministic scoring** from scenario ground truth; costs capped and logged per run.
-- Logs append and runs stop on API errors, so a file can hold several invocations: analyse per invocation and say which.
+- Logs append and runs stop on API errors, so a file can hold several invocations: analyse per invocation and say which
+  (`netwing.reproduce` does this and new logs record an invocation id).
+- **Audited.** A full audit ([docs/research/07](docs/research/07-comprehensive-audit.md)) reconciled every documented
+  number with the logs and hardened the web UI and the lab backends; a scripted-run comparison showed identical
+  controller decisions before and after.
 
 ## Honest limits
 One model (Haiku 5.5); most suites are simulator-only; the real network covers the easy suite; the Kathara backend has
@@ -97,7 +120,8 @@ suite; human-labelled evaluation; paper.
 ```bash
 pip install -e ".[dev,lint,typecheck]"
 ruff check netwing tests && mypy && pytest
+python -m netwing.reproduce check --strict
 ```
-CI runs lint, type check, tests and a dry-run on Python 3.10-3.13, plus a Docker build. The container image serves the UI.
+CI runs lint, type check, tests, the number check and a dry-run on Python 3.10-3.13, plus a Docker build. The container image serves the UI.
 
 For details (every flag, suite, the UI, the real-network setup) see [docs/REFERENCE.md](docs/REFERENCE.md).

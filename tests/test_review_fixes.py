@@ -207,3 +207,35 @@ def test_kathara_refused_port_and_unasked_nxdomain_are_not_evidence():
     nx = ";; ->>HEADER<<- opcode: QUERY, status: NXDOMAIN, id: 3"
     assert KatharaNetwork("/x", runner=lambda c, t: nx).dns_lookup("h1", "other.lab").evidence is False
     assert KatharaNetwork("/x", runner=lambda c, t: nx).dns_lookup("h1", "web.lab").evidence is True
+
+
+# ---- error taxonomy: a programming bug must be distinguishable from an API/network failure in the log ----
+
+class _RaisingClient(ExplodingClient):
+    exc: Exception = RuntimeError("x")
+
+    def _create(self, **kw):
+        raise self.exc
+
+
+def _run_with(exc):
+    client = _RaisingClient([])
+    client.exc = exc
+    client.messages = NS(create=client._create)
+    s = get_scenario("healthy_false_alarm")
+    return run_diagnosis(s, SimNetwork(s), "plain", client, guard(), "m", 8)
+
+
+def test_error_kind_separates_network_failures_from_programming_bugs():
+    assert _run_with(ConnectionError("reset")).error_kind == "api"
+    assert _run_with(TimeoutError("slow")).error_kind == "api"
+    bug = _run_with(AttributeError("'NoneType' object has no attribute 'x'"))
+    assert bug.status == "error" and bug.error_kind == "internal" and bug.error_where
+    assert _run_with(RuntimeError("boom")).error_kind == "other"
+
+
+def test_error_fields_are_empty_on_a_clean_run():
+    s = get_scenario("healthy_false_alarm")
+    from netwing.agent import RunLog
+
+    assert RunLog(s.id, "plain", "m").error_kind == ""
