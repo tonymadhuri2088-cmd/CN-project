@@ -1,6 +1,7 @@
 # Changelog
 
 ## Unreleased
+- Opt-in `--mask-reproduced` (masking v2): only a reproduced connectivity failure masks port claims; masked secondary port claims are dropped and logged. Frozen suite `fresh4` and its pre-registration. `--mask-aware` (v1) stays as is and is documented as a negative result (live run: blip scenario 10 of 10 no-answers).
 - Opt-in `--mask-aware` (`Controller(mask_aware=True)`): a port_blocked claim is not accepted while a route failure on the target stands, which fixes the route-only false positive. Default behaviour and all published results are unchanged; not yet evaluated with a model (needs a new pre-registered suite and approval for paid runs).
 - `.gitattributes`: dropped the `-text` rules for run logs (they made git see CRLF working copies as modified).
 - Property-based tests (Hypothesis) for controller invariants.

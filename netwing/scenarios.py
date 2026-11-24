@@ -209,7 +209,23 @@ for _id, (_ticket, _truth, _faults, _also, _topo) in _FRESH3.items():
     _SCENARIOS[_id] = Scenario(id=_id, ticket=_ticket, truth=_truth, faults=_faults, also=_also, **_kw)
 FRESH3_IDS = list(_FRESH3)
 
-_EXTRA = set(LAB_IDS) | set(FRESH3_IDS) | set(FRESH2_IDS) | set(FRESH_IDS) | set(HELDOUT_IDS) | set(HARD_IDS) | set(FLAKY_IDS) | set(MULTI_IDS) | set(CAMPUS_IDS)
+# fresh4 (simulator only): written BEFORE the masking-v2 evaluation, to test whether a reproduced-only route-masking rule
+# avoids the blip over-masking seen in the first live run and does not harm route-only diagnosis. Frozen: run once.
+_FRESH4 = {
+    "fx4_blip_port": (TICKET, "port_blocked", frozenset({"port", "blip"}), (), None),
+    "fx4_noisy_blip_port": (NOISY_TICKET, "port_blocked", frozenset({"noise", "port", "blip"}), (), None),
+    "fx4_campus_blip_port": (TICKET, "port_blocked", frozenset({"port", "blip"}), (), CAMPUS),
+    "fx4_flaky_route": (FLAKY_TICKET, "route_failure", frozenset({"route"}), (), None),
+    "fx4_campus_flaky_route": (FLAKY_TICKET, "route_failure", frozenset({"route"}), (), CAMPUS),
+    "fx4_noisy_blip_route": (NOISY_TICKET, "route_failure", frozenset({"noise", "route", "blip"}), (), None),
+    "fx4_campus_noisy_blip_route": (NOISY_TICKET, "route_failure", frozenset({"noise", "route", "blip"}), (), CAMPUS),
+}
+for _id, (_ticket, _truth, _faults, _also, _topo) in _FRESH4.items():
+    _kw = {"topology": _topo} if _topo is not None else {}
+    _SCENARIOS[_id] = Scenario(id=_id, ticket=_ticket, truth=_truth, faults=_faults, also=_also, **_kw)
+FRESH4_IDS = list(_FRESH4)
+
+_EXTRA = set(LAB_IDS) | set(FRESH4_IDS) | set(FRESH3_IDS) | set(FRESH2_IDS) | set(FRESH_IDS) | set(HELDOUT_IDS) | set(HARD_IDS) | set(FLAKY_IDS) | set(MULTI_IDS) | set(CAMPUS_IDS)
 ALL_IDS = [i for i in _SCENARIOS if i not in _EXTRA]  # default suite: the easy four
 
 

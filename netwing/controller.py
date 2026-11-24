@@ -43,7 +43,7 @@ class Controller:
     """
     def __init__(self, max_tests: int = 8, subject=None, guide_citations: bool = False, auto_cite: bool = False,
                  healthy_strategy: str = "rules", belief_tau: float = 0.85, resolver_hosts=None,
-                 validate_claims: bool = False, mask_aware: bool = False):
+                 validate_claims: bool = False, mask_aware: bool = False, mask_reproduced: bool = False):
         if healthy_strategy not in HEALTHY_STRATEGIES:
             raise ValueError(f"healthy_strategy must be one of {HEALTHY_STRATEGIES}, got {healthy_strategy!r}")
         if not 0.5 < belief_tau < 1:
@@ -59,6 +59,9 @@ class Controller:
         # opt-in masking rule: a standing connectivity failure makes port checks fail on their own, so a port_blocked claim
         # (primary or secondary) is not accepted on that evidence. Off by default: published behaviour is unchanged.
         self.mask_aware = mask_aware
+        # opt-in masking v2: like mask_aware, but only a REPRODUCED connectivity failure masks (a one-off blip does not), and masked
+        # secondary claims can be dropped (`drop_masked_secondary`). `mask_aware` keeps its published v1 behaviour.
+        self.mask_reproduced = mask_reproduced
         self.healthy_basis = ""  # why the last accepted/decided healthy verdict was allowed (auditable)
         self.max_tests = max_tests
         self.guide_citations = guide_citations  # opt-in: a rejected fault claim names the ids it could cite
@@ -154,9 +157,24 @@ class Controller:
         A standing, relevant connectivity failure (no route to the target) makes every port check fail, so a port failure
         cannot show a blocked port until the route works. DNS failures are already handled by the `dns` category of masked checks."""
         masked: set[str] = set()
-        if any(r.category in ("connectivity", "routing") for _, r in self._failures()):
+        conn = [(e, r) for e, r in self._failures() if r.category in ("connectivity", "routing")]
+        if self.mask_reproduced:
+            conn = self._reproduced(conn)  # v2: a single sighting (possibly a blip) does not mask
+        if conn:
             masked.add("port_blocked")
         return masked
+
+    @property
+    def _masking(self) -> bool:
+        return self.mask_aware or self.mask_reproduced
+
+    def drop_masked_secondary(self, other_faults) -> tuple[list[str], list[str]]:
+        """With `mask_reproduced`, drop secondary fault claims that a reproduced route failure masks. Returns (kept, dropped)."""
+        faults = list(other_faults or [])
+        if not self.mask_reproduced:
+            return faults, []
+        masked = self.masked_faults()
+        return [f for f in faults if f not in masked], [f for f in faults if f in masked]
 
     # -- healthy decision strategies (opt-in; "rules" is the published default) ---------
     def _belief(self):
@@ -278,7 +296,7 @@ class Controller:
                 return {"fault_type": fault_type, "role": role, "status": "unsupported", "accepted": False,
                         "evidence": [], "reason": "Unknown fault type; no evidence area maps to it."}
             standing = [(e, r) for e, r in failures if r.category in needed]
-            if self.mask_aware and standing and fault_type in self.masked_faults():
+            if self._masking and standing and fault_type in self.masked_faults():
                 return {"fault_type": fault_type, "role": role, "status": "unsupported", "accepted": False,
                         "evidence": [e for e, _ in standing],
                         "reason": "Masked: a route failure on the target stands, which makes port checks fail on its own."}
@@ -363,7 +381,7 @@ class Controller:
                 if standing:
                     cited_failing = standing
                     evidence_ids = list(evidence_ids) + standing
-            if cited_failing and self.mask_aware and fault_type in self.masked_faults():
+            if cited_failing and self._masking and fault_type in self.masked_faults():
                 return False, (
                     "A route failure on the target still stands, and a failing route makes every port check fail by itself, so "
                     "these port failures do not show a blocked port. Report route_failure, or fix the route first and "
