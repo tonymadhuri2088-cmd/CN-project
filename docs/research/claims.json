@@ -418,5 +418,25 @@
   "metric": "multi_exact_incl",
   "k": 34,
   "n": 60
+ },
+ {
+  "id": "fresh3.original.extra_incl_suspected",
+  "doc": "docs/research/05-fresh3-tiered-claims.md",
+  "file": "results/fresh3_original.jsonl",
+  "invocation": 0,
+  "mode": "netwing",
+  "metric": "extra_incl",
+  "k": 16,
+  "n": 90
+ },
+ {
+  "id": "fresh3.tier.extra_incl_suspected",
+  "doc": "docs/research/05-fresh3-tiered-claims.md",
+  "file": "results/fresh3_tier.jsonl",
+  "invocation": 0,
+  "mode": "netwing",
+  "metric": "extra_incl",
+  "k": 10,
+  "n": 90
  }
 ]
