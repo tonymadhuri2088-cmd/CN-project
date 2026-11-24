@@ -36,6 +36,7 @@ def run_matrix(
     tier_claims: bool = False,
     mask_aware: bool = False,
     mask_reproduced: bool = False,
+    cover_areas: bool = False,
     provenance: dict | None = None,
     resume: bool = False,
 ) -> list[RunLog]:
@@ -57,7 +58,7 @@ def run_matrix(
                         continue
                     backend = backend_factory(scenario)
                     log = run_diagnosis(scenario, backend, mode, client, guard, model, MAX_TESTS[mode], inventory, allow_inconclusive, guide_citations, auto_cite,
-                                         healthy_strategy, belief_tau, retest_hint, resolver_hosts, validate_claims, tier_claims, mask_aware, mask_reproduced)
+                                         healthy_strategy, belief_tau, retest_hint, resolver_hosts, validate_claims, tier_claims, mask_aware, mask_reproduced, cover_areas)
                     logs.append(log)
                     rec = log.to_dict()
                     rec["score"] = asdict(score(scenario, log.answer))

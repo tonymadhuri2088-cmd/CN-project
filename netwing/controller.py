@@ -43,7 +43,8 @@ class Controller:
     """
     def __init__(self, max_tests: int = 8, subject=None, guide_citations: bool = False, auto_cite: bool = False,
                  healthy_strategy: str = "rules", belief_tau: float = 0.85, resolver_hosts=None,
-                 validate_claims: bool = False, mask_aware: bool = False, mask_reproduced: bool = False):
+                 validate_claims: bool = False, mask_aware: bool = False, mask_reproduced: bool = False,
+                 cover_areas: bool = False):
         if healthy_strategy not in HEALTHY_STRATEGIES:
             raise ValueError(f"healthy_strategy must be one of {HEALTHY_STRATEGIES}, got {healthy_strategy!r}")
         if not 0.5 < belief_tau < 1:
@@ -62,6 +63,9 @@ class Controller:
         # opt-in masking v2: like mask_aware, but only a REPRODUCED connectivity failure masks (a one-off blip does not), and masked
         # secondary claims can be dropped (`drop_masked_secondary`). `mask_aware` keeps its published v1 behaviour.
         self.mask_reproduced = mask_reproduced
+        # opt-in layer-coverage stopping rule: do not stop on a fault while another area (connectivity, DNS, port) still has a
+        # standing failure seen only once; keep testing until it is reproduced, clears, or the cap is reached. Off by default.
+        self.cover_areas = cover_areas
         self.healthy_basis = ""  # why the last accepted/decided healthy verdict was allowed (auditable)
         self.max_tests = max_tests
         self.guide_citations = guide_citations  # opt-in: a rejected fault claim names the ids it could cite
@@ -163,6 +167,25 @@ class Controller:
         if conn:
             masked.add("port_blocked")
         return masked
+
+    def pending_areas(self) -> set[str]:
+        """Areas with a standing failure that has been seen only once (not reproduced). A port failure is not pending while a
+        reproduced route failure stands, because that route failure makes port checks fail on its own (masking)."""
+        failures = self._failures()
+        repro = {("connectivity" if r.category == "routing" else r.category) for _, r in self._reproduced(failures)}
+        seen = {("connectivity" if r.category == "routing" else r.category) for _, r in failures}
+        pending = {a for a in seen if a in ("connectivity", "dns", "port") and a not in repro}
+        if "connectivity" in repro:
+            pending.discard("port")
+        return pending
+
+    def cover_hint(self) -> str:
+        """With `cover_areas`: tell the agent which areas hold a failure seen once, so it can repeat that check."""
+        pending = sorted(self.pending_areas()) if self.cover_areas else []
+        if not pending:
+            return ""
+        return ("\nCoverage: a failure in " + ", ".join(pending) + " has been seen only once. Repeat that check (same tool, same "
+                "arguments) to confirm or clear it before concluding.")
 
     @property
     def _masking(self) -> bool:
@@ -335,7 +358,8 @@ class Controller:
         if ok:
             self.healthy_basis = basis
             return Verdict.STOP_HEALTHY
-        if failures and self._reproduced(failures) and _HEALTHY_NEEDS <= self._areas_tried():
+        if failures and self._reproduced(failures) and _HEALTHY_NEEDS <= self._areas_tried() \
+                and not (self.cover_areas and self.pending_areas()):
             return Verdict.STOP_FAULT
         if self.tests_run >= self.max_tests:
             return Verdict.STOP_CAP
