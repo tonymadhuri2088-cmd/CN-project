@@ -214,6 +214,8 @@ def run_diagnosis(
     validate_claims: bool = False,
     tier_claims: bool = False,
     mask_aware: bool = False,
+    mask_reproduced: bool = False,
+    cover_areas: bool = False,
 ) -> RunLog:
     """Run one agent diagnosis of a scenario against a backend and return its `RunLog`.
 
@@ -227,7 +229,8 @@ def run_diagnosis(
     log = RunLog(scenario_id=scenario.id, mode=mode, model=model)
     ctrl = Controller(max_tests=max_tests, subject=scenario.subject, guide_citations=guide_citations, auto_cite=auto_cite,
                       healthy_strategy=healthy_strategy, belief_tau=belief_tau, resolver_hosts=resolver_hosts,
-                      validate_claims=validate_claims, mask_aware=mask_aware)  # ids + counting in every mode; gating only in netwing
+                      validate_claims=validate_claims, mask_aware=mask_aware, mask_reproduced=mask_reproduced,
+                      cover_areas=cover_areas)  # ids + counting in every mode; gating only in netwing
     gated = mode == "netwing"
     messages: list[dict[str, Any]] = [{"role": "user", "content": scenario.ticket}]
     forced = False
@@ -302,6 +305,8 @@ def run_diagnosis(
                 text = f"[{eid}] {res.output}"
                 if retest_hint and gated:
                     text += ctrl.hint(res, eid)  # opt-in guidance; never changes a verdict
+                if cover_areas and gated:
+                    text += ctrl.cover_hint()  # opt-in: names areas with a failure seen once
                 results.append({"type": "tool_result", "tool_use_id": u["id"], "content": text})
 
             if accepted is not None:
@@ -312,6 +317,11 @@ def run_diagnosis(
                     if tier_claims:  # keep claims backed by a single sighting visible, flagged, and scored apart
                         accepted["suspected_faults"] = [x["fault_type"] for x in log.claim_report
                                                         if x["role"] == "secondary" and x["status"] == "suspected"]
+                if gated and mask_reproduced and not validate_claims and accepted.get("verdict") == "fault":
+                    raw = list(accepted.get("other_faults") or [])
+                    kept, dropped = ctrl.drop_masked_secondary(raw)
+                    if dropped:  # a masked secondary claim is removed, never silently: the raw claim stays auditable
+                        accepted = dict(accepted, other_faults=kept, other_faults_raw=raw, dropped_masked=dropped)
                 log.answer = accepted
                 if gated and accepted.get("verdict") == "healthy":
                     log.healthy_basis = ctrl.healthy_basis

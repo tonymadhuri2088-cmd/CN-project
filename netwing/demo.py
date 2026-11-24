@@ -10,7 +10,7 @@ from typing import Any
 from .budget import CostGuard, load_prices
 from . import provenance
 from .runner import run_matrix, summarize
-from .scenarios import ALL_IDS, CAMPUS_IDS, FLAKY_IDS, FRESH2_IDS, FRESH3_IDS, FRESH_IDS, HARD_IDS, HELDOUT_IDS, LAB_IDS, MULTI_IDS
+from .scenarios import ALL_IDS, CAMPUS_IDS, FLAKY_IDS, FRESH2_IDS, FRESH3_IDS, FRESH4_IDS, FRESH5_IDS, FRESH_IDS, HARD_IDS, HELDOUT_IDS, LAB_IDS, MULTI_IDS
 from .sim import SimNetwork
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -26,10 +26,10 @@ def build_parser():
     p.add_argument("--run-cap", type=float, default=0.50, help="hard USD cap per run")
     p.add_argument("--model", default=os.environ.get("NETWING_MODEL", "claude-haiku-5-5"))
     p.add_argument("--dry-run", action="store_true", help="scripted stub client, zero API spend")
-    p.add_argument("--suite", choices=["easy", "hard", "flaky", "multi", "campus", "lab", "heldout", "fresh", "fresh2", "fresh3", "all"], default="easy",
+    p.add_argument("--suite", choices=["easy", "hard", "flaky", "multi", "campus", "lab", "heldout", "fresh", "fresh2", "fresh3", "fresh4", "fresh5", "all"], default="easy",
                    help="easy: four basic cases; hard: plus red-herring alerts; flaky: transient/intermittent; "
                         "multi: two faults at once; campus: bigger network; lab and heldout: simulator-only extra suites; all: easy+hard+flaky+multi+campus")
-    p.add_argument("--scenarios", nargs="+", default=None, choices=ALL_IDS + HARD_IDS + FLAKY_IDS + MULTI_IDS + CAMPUS_IDS + LAB_IDS + HELDOUT_IDS + FRESH_IDS + FRESH2_IDS + FRESH3_IDS,
+    p.add_argument("--scenarios", nargs="+", default=None, choices=ALL_IDS + HARD_IDS + FLAKY_IDS + MULTI_IDS + CAMPUS_IDS + LAB_IDS + HELDOUT_IDS + FRESH_IDS + FRESH2_IDS + FRESH3_IDS + FRESH4_IDS + FRESH5_IDS,
                    help="explicit scenario ids (overrides --suite)")
     p.add_argument("--modes", nargs="+", default=MODES, choices=MODES)
     p.add_argument("--lab-root", default="labs", help="kathara lab folders, one per scenario id")
@@ -64,6 +64,12 @@ def build_parser():
     p.add_argument("--mask-aware", action="store_true",
                    help="netwing mode only: do not accept a port_blocked claim while a route failure on the target stands "
                         "(a failing route makes port checks fail by itself); default behaviour is unchanged")
+    p.add_argument("--mask-reproduced", action="store_true",
+                   help="netwing mode only: like --mask-aware, but only a REPRODUCED route failure masks port claims (a one-off blip does not), "
+                        "and masked secondary port claims are dropped and logged; default behaviour is unchanged")
+    p.add_argument("--cover-areas", action="store_true",
+                   help="netwing mode only: do not stop on a fault while another area (connectivity, DNS, port) has a failure seen only once; "
+                        "keep testing until it is reproduced, clears, or the cap is reached; default behaviour is unchanged")
     p.add_argument("--resolver-hosts", nargs="+", default=None,
                    help="hosts that have a DNS resolver; the belief ignores DNS readings from any other host "
                         "(default: every host counts)")
@@ -95,6 +101,8 @@ def _scenario_ids(args):
     suites = {"easy": ALL_IDS, "hard": HARD_IDS, "flaky": FLAKY_IDS, "multi": MULTI_IDS, "campus": CAMPUS_IDS}
     suites["all"] = [i for ids in suites.values() for i in ids]  # "all" does not include the lab or held-out suites
     suites["lab"] = LAB_IDS
+    suites["fresh5"] = FRESH5_IDS  # simulator only; frozen before --cover-areas was evaluated: run once
+    suites["fresh4"] = FRESH4_IDS  # simulator only; frozen before masking v2 was evaluated: run once
     suites["fresh3"] = FRESH3_IDS  # simulator only; frozen before tiered claims were written: run once
     suites["fresh2"] = FRESH2_IDS  # simulator only; frozen before claim validation was written: run once
     suites["fresh"] = FRESH_IDS  # simulator only; validation set for the opt-in healthy strategies: run once
@@ -105,7 +113,7 @@ def _scenario_ids(args):
 def main(argv=None) -> int:
     """Run the selected suites and modes, print the summary table and write the JSONL logs."""
     args = build_parser().parse_args(argv)
-    if args.backend != "sim" and set(_scenario_ids(args)) & (set(LAB_IDS) | set(HELDOUT_IDS) | set(FRESH_IDS) | set(FRESH2_IDS) | set(FRESH3_IDS)):
+    if args.backend != "sim" and set(_scenario_ids(args)) & (set(LAB_IDS) | set(HELDOUT_IDS) | set(FRESH_IDS) | set(FRESH2_IDS) | set(FRESH3_IDS) | set(FRESH4_IDS) | set(FRESH5_IDS)):
         raise SystemExit("the lab and held-out scenarios exist only in the simulator: use --backend sim")
     if args.backend == "kathara" and shutil.which("kathara") is None:
         raise SystemExit("the 'kathara' command was not found; install Kathara and Docker first (see SETUP_LINUX.md)")
@@ -147,7 +155,7 @@ def main(argv=None) -> int:
             inventory=args.inventory, allow_inconclusive=args.allow_inconclusive,
             guide_citations=args.guide_citations, auto_cite=args.auto_cite,
             healthy_strategy=args.healthy_strategy, belief_tau=args.belief_tau, retest_hint=args.retest_hint,
-            validate_claims=args.validate_claims or args.tier_claims, tier_claims=args.tier_claims, mask_aware=args.mask_aware,
+            validate_claims=args.validate_claims or args.tier_claims, tier_claims=args.tier_claims, mask_aware=args.mask_aware, mask_reproduced=args.mask_reproduced, cover_areas=args.cover_areas,
             resolver_hosts=set(args.resolver_hosts) if args.resolver_hosts else None,
             provenance=provenance.build(config, model), resume=args.resume,
         )
