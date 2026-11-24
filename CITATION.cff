@@ -1,0 +1,17 @@
+cff-version: 1.2.0
+message: "If you use NetWing, please cite it as below."
+title: "NetWing: an evidence-sufficiency controller for LLM network-diagnosis agents"
+type: software
+version: 0.1.0
+date-released: 2026-11-25
+license: MIT
+repository-code: "https://github.com/tonymadhuri2088-cmd/CN-project"
+url: "https://netwing-demo.onrender.com"
+authors:
+  - given-names: "Tony"
+    family-names: "Madhuri"
+keywords:
+  - networking
+  - large language models
+  - agents
+  - evaluation

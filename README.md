@@ -139,3 +139,8 @@ python -m netwing.reproduce check --strict
 CI runs lint, type check, tests, the number check and a dry-run on Python 3.10-3.13, plus a Docker build. The container image serves the UI.
 
 For details (every flag, suite, the UI, the real-network setup) see [docs/REFERENCE.md](docs/REFERENCE.md).
+
+## More
+
+- [Architecture](docs/ARCHITECTURE.md) · [NetWing 2.0 roadmap](docs/research/08-netwing-2-roadmap.md) · [Contributing](CONTRIBUTING.md) · [Changelog](CHANGELOG.md) · [Cite](CITATION.cff)
+- `make check` runs lint, types, tests (incl. Hypothesis property tests) and the strict reproducibility check.

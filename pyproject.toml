@@ -6,11 +6,22 @@ requires-python = ">=3.10"
 dependencies = ["anthropic>=0.40"]
 
 readme = "README.md"
-license = { text = "All rights reserved (course project; licence to be chosen by the authors)" }
+license = { text = "MIT" }
 keywords = ["networking", "llm", "agents", "diagnosis", "evaluation"]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: MIT License",
+    "Topic :: System :: Networking",
+    "Intended Audience :: Science/Research",
+]
+
+[project.urls]
+Homepage = "https://netwing-demo.onrender.com"
+Repository = "https://github.com/tonymadhuri2088-cmd/CN-project"
+Issues = "https://github.com/tonymadhuri2088-cmd/CN-project/issues"
 
 [project.optional-dependencies]
-dev = ["pytest"]
+dev = ["pytest", "pytest-cov", "hypothesis"]
 lint = ["ruff"]
 typecheck = ["mypy"]
 

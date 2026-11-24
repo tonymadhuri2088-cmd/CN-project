@@ -1,0 +1,6 @@
+# Normalise text, keep shell scripts LF (they break in WSL with CRLF), and never rewrite recorded run logs:
+# the reproducibility check re-derives every documented number from them.
+* text=auto
+*.sh text eol=lf
+results/** -text
+*.jsonl -text

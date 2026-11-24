@@ -1,0 +1,22 @@
+# Optional: pip install pre-commit && pre-commit install
+repos:
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.8.0
+    hooks:
+      - id: ruff
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v5.0.0
+    hooks:
+      - id: end-of-file-fixer
+        exclude: ^results/
+      - id: check-yaml
+      - id: check-added-large-files
+        args: ["--maxkb=2000"]
+  - repo: local
+    hooks:
+      - id: reproduce
+        name: documented numbers still reproduce
+        entry: python -m netwing.reproduce check --strict
+        language: system
+        pass_filenames: false
+        files: ^(docs/research/|results/|netwing/(final_report|reproduce)\.py)
