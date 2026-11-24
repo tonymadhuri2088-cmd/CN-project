@@ -61,6 +61,9 @@ def build_parser():
     p.add_argument("--tier-claims", action="store_true",
                    help="with claim validation: keep a secondary claim backed by a single sighting as a flagged "
                         "'suspected' fault instead of dropping it (implies --validate-claims)")
+    p.add_argument("--mask-aware", action="store_true",
+                   help="netwing mode only: do not accept a port_blocked claim while a route failure on the target stands "
+                        "(a failing route makes port checks fail by itself); default behaviour is unchanged")
     p.add_argument("--resolver-hosts", nargs="+", default=None,
                    help="hosts that have a DNS resolver; the belief ignores DNS readings from any other host "
                         "(default: every host counts)")
@@ -144,7 +147,7 @@ def main(argv=None) -> int:
             inventory=args.inventory, allow_inconclusive=args.allow_inconclusive,
             guide_citations=args.guide_citations, auto_cite=args.auto_cite,
             healthy_strategy=args.healthy_strategy, belief_tau=args.belief_tau, retest_hint=args.retest_hint,
-            validate_claims=args.validate_claims or args.tier_claims, tier_claims=args.tier_claims,
+            validate_claims=args.validate_claims or args.tier_claims, tier_claims=args.tier_claims, mask_aware=args.mask_aware,
             resolver_hosts=set(args.resolver_hosts) if args.resolver_hosts else None,
             provenance=provenance.build(config, model), resume=args.resume,
         )

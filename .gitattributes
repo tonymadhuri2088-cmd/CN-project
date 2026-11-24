@@ -1,6 +1,4 @@
-# Normalise text, keep shell scripts LF (they break in WSL with CRLF), and never rewrite recorded run logs:
-# the reproducibility check re-derives every documented number from them.
+# Normalise text to LF in the repository and keep shell scripts LF (they break in WSL with CRLF).
+# Run logs are not special-cased: their committed LF bytes stay exactly as published.
 * text=auto
 *.sh text eol=lf
-results/** -text
-*.jsonl -text
