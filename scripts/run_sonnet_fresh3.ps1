@@ -2,8 +2,10 @@
 # Run from the repo root in PowerShell:  .\scripts\run_sonnet_fresh3.ps1
 $ErrorActionPreference = "Stop"
 if (-not (Test-Path "netwing")) { throw "Run this from the repo root (the folder that contains netwing/)." }
-$sec = Read-Host "Paste a NEW Anthropic API key (input is hidden)" -AsSecureString
-$env:ANTHROPIC_API_KEY = [Runtime.InteropServices.Marshal]::PtrToStringAuto([Runtime.InteropServices.Marshal]::SecureStringToBSTR($sec))
+# Copy the key first (Ctrl+C), then run this script: it reads the key from the clipboard.
+$env:ANTHROPIC_API_KEY = (Get-Clipboard -Raw).Trim()
+Write-Host ("key length: " + $env:ANTHROPIC_API_KEY.Length + "  starts with sk-ant-: " + $env:ANTHROPIC_API_KEY.StartsWith("sk-ant-"))
+if (-not $env:ANTHROPIC_API_KEY.StartsWith("sk-ant-")) { Write-Host "Clipboard does not hold an API key. Copy the key and retry."; Remove-Item Env:ANTHROPIC_API_KEY -ErrorAction SilentlyContinue; exit 1 }
 try {
   foreach ($arm in @(@{n="original"; f=@()}, @{n="tier"; f=@("--tier-claims")})) {
     $out = "results/fresh3_sonnet_$($arm.n).jsonl"
