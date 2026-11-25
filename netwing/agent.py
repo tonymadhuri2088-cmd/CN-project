@@ -234,15 +234,26 @@ def run_diagnosis(
     gated = mode == "netwing"
     messages: list[dict[str, Any]] = [{"role": "user", "content": scenario.ticket}]
     forced = False
+    forced_unsupported = False
     nudges = 0
     max_turns = max_tests + 6
 
     try:
         for _ in range(max_turns):
             kwargs = dict(model=model, max_tokens=MAX_TOKENS, system=_system_prompt(mode, scenario, inventory, allow_inconclusive), tools=_tools_for(scenario, allow_inconclusive), messages=messages)
-            if forced:
+            if forced and not forced_unsupported:
                 kwargs["tool_choice"] = FORCED
-            resp = client.messages.create(**kwargs)
+            try:
+                resp = client.messages.create(**kwargs)
+            except Exception as e:
+                # Some models (e.g. Sonnet 5.5) reject a forced tool_choice. Fall back to the in-text
+                # FORCE_TEXT instruction already appended to the tool result, and do not force again.
+                if "tool_choice" in kwargs and "tool_choice" in str(e) and "not supported" in str(e):
+                    kwargs.pop("tool_choice")
+                    forced_unsupported = True
+                    resp = client.messages.create(**kwargs)
+                else:
+                    raise
             try:
                 usage = getattr(resp, "usage", None)
                 guard.add_usage(
