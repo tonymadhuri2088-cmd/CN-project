@@ -3,7 +3,7 @@
 $ErrorActionPreference = "Stop"
 if (-not (Test-Path "netwing")) { throw "Run this from the repo root (the folder that contains netwing/)." }
 # Copy the key first (Ctrl+C), then run this script: it reads the key from the clipboard.
-$env:ANTHROPIC_API_KEY = (Get-Clipboard -Raw).Trim()
+if (-not ($env:ANTHROPIC_API_KEY -and $env:ANTHROPIC_API_KEY.StartsWith("sk-ant-"))) { $env:ANTHROPIC_API_KEY = (Get-Clipboard -Raw).Trim() }
 Write-Host ("key length: " + $env:ANTHROPIC_API_KEY.Length + "  starts with sk-ant-: " + $env:ANTHROPIC_API_KEY.StartsWith("sk-ant-"))
 if (-not $env:ANTHROPIC_API_KEY.StartsWith("sk-ant-")) { Write-Host "Clipboard does not hold an API key. Copy the key and retry."; Remove-Item Env:ANTHROPIC_API_KEY -ErrorAction SilentlyContinue; exit 1 }
 try {
