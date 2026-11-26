@@ -15,6 +15,9 @@ from typing import Any
 from . import reproduce
 
 REPO_URL = "https://github.com/tonymadhuri2088-cmd/CN-project"
+AUTHOR = "Tony Madhuri"
+GUIDE = "Mehbub Alam"
+AUTHOR_LINE = f"{AUTHOR} · B.Tech 3rd year, AI&DS · VIT-AP · Computer Networks project · Guide: {GUIDE}"
 STATE: dict[str, Any] = {"read_only": False}  # set by webui.make_handler; read by page()
 
 _FAVICON = ("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' "
@@ -44,13 +47,25 @@ nav.main a:hover{background:rgba(255,255,255,.12);color:#fff}nav.main a[aria-cur
 .banner{background:var(--warnbg);color:var(--warn);border-bottom:1px solid var(--line);font-size:13.5px}
 .banner div{max-width:1120px;margin:0 auto;padding:8px 20px}
 main{max-width:1120px;margin:0 auto;padding:26px 20px 40px}
-h1{font-size:28px;line-height:1.2;margin:0 0 10px;letter-spacing:-.3px}h2{font-size:20px;margin:30px 0 10px;letter-spacing:-.2px}h3{font-size:16px;margin:0 0 6px}
+h1{font-size:28px;line-height:1.2;margin:0 0 10px;letter-spacing:-.3px}h2{font-size:22px;margin:38px 0 12px;letter-spacing:-.3px}h3{font-size:16px;margin:0 0 6px}
 p{margin:0 0 12px}.lead{font-size:17px;color:var(--muted);max-width:760px}.muted,.nm{color:var(--muted)}
-.hero{padding:6px 0 10px}.kicker{display:inline-block;background:var(--chip);color:var(--accent);padding:3px 10px;border-radius:999px;font-size:12.5px;font-weight:600;margin-bottom:10px}
+.hero{background:linear-gradient(135deg,var(--brand) 0%,var(--brand2) 100%);color:#fff;border-radius:20px;padding:40px 40px 34px;margin:2px 0 10px;box-shadow:0 10px 30px rgba(15,23,42,.18)}
+.hero h1{color:#fff;font-size:34px;max-width:860px;letter-spacing:-.6px}.hero .lead{color:#dbe4ff;max-width:800px}
+.kicker{display:inline-block;background:var(--chip);color:var(--accent);padding:3px 10px;border-radius:999px;font-size:12.5px;font-weight:600;margin-bottom:10px}
+.hero .kicker{background:rgba(255,255,255,.16);color:#fff;letter-spacing:.3px}
+.byline{display:flex;align-items:center;gap:12px;margin:18px 0 20px;color:#e0e7ff;font-size:14.5px}
+.avatar{width:38px;height:38px;border-radius:50%;background:rgba(255,255,255,.18);border:1px solid rgba(255,255,255,.35);display:grid;place-items:center;font-weight:700;color:#fff}
+.byline b{color:#fff;display:block;line-height:1.2}.byline span{opacity:.8;font-size:13px}
+.hero .btn{background:#fff;color:var(--brand)}.hero .btn.alt{background:rgba(255,255,255,.14);color:#fff;border:1px solid rgba(255,255,255,.35)}
+.chips{display:flex;flex-wrap:wrap;gap:8px;margin:14px 0 0;padding:0;list-style:none}.chips li{background:var(--chip);color:var(--accent);border-radius:999px;padding:4px 12px;font-size:13px;font-weight:600}
+.about{display:grid;gap:20px;grid-template-columns:2fr 1fr}.about h3{font-size:18px}
+.facts{margin:0;padding:0;list-style:none;display:grid;gap:10px}.facts li{border-left:3px solid var(--accent);padding:2px 0 2px 12px;font-size:14px}.facts b{display:block;font-size:20px;letter-spacing:-.3px}
+@media (max-width:760px){.about{grid-template-columns:1fr}.hero{padding:26px 22px}.hero h1{font-size:26px}}
 .grid{display:grid;gap:14px}.g4{grid-template-columns:repeat(auto-fit,minmax(230px,1fr))}.g3{grid-template-columns:repeat(auto-fit,minmax(280px,1fr))}
-.card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:16px 18px;margin:12px 0}
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:18px 20px;margin:12px 0;box-shadow:0 1px 2px rgba(15,23,42,.05)}
+.grid .card{transition:transform .15s,box-shadow .15s}.grid .card:hover{transform:translateY(-2px);box-shadow:0 8px 22px rgba(15,23,42,.1)}
 .grid .card{margin:0}.card.flat{box-shadow:none}
-.tile .big{font-size:30px;font-weight:700;letter-spacing:-.5px;line-height:1.1}.tile .big s{color:var(--muted);font-weight:500;font-size:20px;text-decoration-thickness:2px}
+.tile .big{font-size:34px;font-weight:700;letter-spacing:-.5px;line-height:1.1}.tile .big s{color:var(--muted);font-weight:500;font-size:20px;text-decoration-thickness:2px}
 .tile .lbl{font-weight:600;margin-bottom:6px}.tile .sub{font-size:13px;color:var(--muted);margin-top:6px}
 .pill,.tag{display:inline-block;padding:2px 9px;border-radius:999px;font-size:12px;font-weight:600;background:var(--chip);color:var(--accent)}
 .tag{background:var(--warnbg);color:var(--warn)}.pill.ok{background:var(--okbg);color:var(--ok)}.pill.bad{background:var(--badbg);color:var(--bad)}.pill.skip{background:var(--code);color:var(--muted)}
@@ -78,6 +93,7 @@ details{background:var(--card);border:1px solid var(--line);border-radius:12px;p
 footer{max-width:1120px;margin:0 auto;padding:18px 20px 36px;color:var(--muted);font-size:13px;border-top:1px solid var(--line)}
 div.chartwrap{overflow-x:auto}svg.chart text{font:12px system-ui,sans-serif;fill:var(--ink)}svg.chart .mut{fill:var(--muted)}svg.chart .trk{fill:var(--bar)}
 @media (max-width:600px){h1{font-size:23px}nav.main{margin-left:0}.tile .big{font-size:26px}}
+@media (prefers-reduced-motion:reduce){.grid .card{transition:none}.grid .card:hover{transform:none}}
 @media print{header.top,.banner,footer,.skip,form.filters{display:none}body{background:#fff;color:#000}main{padding:0}.card{break-inside:avoid}}
 """
 
@@ -95,13 +111,13 @@ def page(title: str, body: str, active: str = "") -> bytes:
     banner = ("<div class='banner' role='note'><div><b>Read-only demo.</b> Starting new runs is disabled and no API key exists on this server; "
               "everything shown comes from run logs recorded earlier.</div></div>" if STATE["read_only"] else "")
     return (f"<!doctype html><html lang='en'><head><meta charset='utf-8'><meta name='viewport' content='width=device-width,initial-scale=1'>"
-            f"<meta name='description' content='NetWing: an evidence-sufficiency controller for LLM network-diagnosis agents.'>"
+            f"<meta name='description' content='NetWing: an evidence-sufficiency controller for LLM network-diagnosis agents. A Computer Networks project by Tony Madhuri.'>"
             f"<meta name='color-scheme' content='light dark'><link rel='icon' href=\"{_FAVICON}\"><title>{e(title)} · NetWing</title>"
             f"<style>{CSS}</style></head><body><a class='skip' href='#content'>Skip to content</a>"
             f"<header class='top'><div class='bar'><a class='brand' href='/'>{_LOGO}<span>NetWing<small>evidence-sufficiency controller</small></span></a>"
             f"<nav class='main' aria-label='Main'>{_nav(active)}</nav></div></header>{banner}"
             f"<main id='content'>{body}</main>"
-            f"<footer>NetWing · research prototype for LLM network diagnosis · <a href='{REPO_URL}'>source and documentation on GitHub</a>"
+            f"<footer><b>NetWing</b> · research prototype for LLM network diagnosis · {e(AUTHOR_LINE)} · <a href='{REPO_URL}'>source and documentation on GitHub</a>"
             "<br>Simulated networks unless a record says otherwise. Every number on the Overview and Reproducibility pages is recomputed from the raw logs.</footer>"
             "</body></html>").encode()
 
@@ -259,12 +275,22 @@ def overview_page(data: list[dict]) -> bytes:
         "<h1>Make an AI troubleshooting agent prove it has enough evidence before it answers.</h1>"
         "<p class='lead'>NetWing sits outside the language model. It writes every test the agent runs into a numbered evidence ledger and only accepts a "
         "“fault found” answer once a failure has been reproduced and the connectivity, DNS and port areas have all been checked.</p>"
+        f"<div class='byline'><div class='avatar' aria-hidden='true'>TM</div><div><b>{e(AUTHOR)}</b><span>B.Tech 3rd year, AI&amp;DS · VIT-AP · Guide: {e(GUIDE)}</span></div></div>"
         "<p><a class='btn' href='/history'>Browse recorded investigations</a> <a class='btn alt' href='/results'>Check the numbers</a> "
         f"<a class='btn alt' href='{REPO_URL}'>Source on GitHub</a></p></section>"
         + (f"<h2>Headline results</h2><div class='grid g4'>{tiles}</div>" if tiles else
            "<div class='card'><b>No result logs found next to this server</b>, so headline numbers are not shown. "
            "Put the run logs in the results folder and reload.</div>")
         + chart_card +
+        "<h2>About this project</h2><div class='card about'><div><h3>Why NetWing exists</h3>"
+        "<p>LLM agents that troubleshoot networks tend to “find” a fault on a network that is actually healthy, and keep testing long after they have enough evidence. "
+        "NetWing is a transparent rule engine placed between the agent and its conclusion. It numbers every test result, accepts a fault only when it is reproduced "
+        "and the connectivity, DNS and port areas have all been checked, and stops the run when the evidence is sufficient or the 12-test budget is spent.</p>"
+        "<p>It was built and tested as a Computer Networks project by " + e(AUTHOR) + " (B.Tech 3rd year, AI&amp;DS, VIT-AP) under the guidance of " + e(GUIDE) + ": a simulator for most experiments, real Linux network namespaces for the easy suite, "
+        "frozen pre-registered test suites, and every documented number re-derived from the raw logs.</p>"
+        "<ul class='chips'><li>Python</li><li>Claude Haiku 5.5</li><li>Linux network namespaces</li><li>Reproducible logs</li><li>Frozen suites</li></ul></div>"
+        "<ul class='facts'><li><b>9 rules</b>decide when evidence is enough</li><li><b>12 tests</b>maximum per investigation</li>"
+        "<li><b>No second model</b>the controller is auditable code</li></ul></div>"
         "<h2>How the controller decides</h2><ol class='steps'>"
         "<li><h3>Record</h3>Every test the agent runs becomes numbered evidence (E1, E2, …) in an append-only ledger.</li>"
         "<li><h3>Healthy?</h3>If the evidence shows no standing failure, the controller can stop with “healthy”. A failed test must be repeated before it is dismissed as a blip.</li>"
