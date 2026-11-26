@@ -16,8 +16,8 @@ from . import reproduce
 
 REPO_URL = "https://github.com/tonymadhuri2088-cmd/CN-project"
 AUTHOR = "Tony Madhuri"
-GUIDE = "Mehbub Alam"
-AUTHOR_LINE = f"{AUTHOR} · B.Tech 3rd year, AI&DS · VIT-AP · Computer Networks project · Guide: {GUIDE}"
+GUIDE = "Dr. Mehbub Alam"
+AUTHOR_LINE = f"{AUTHOR} · B.Tech 3rd year, AI&DS · IIIT Raichur · Computer Networks project · Guide: {GUIDE}"
 STATE: dict[str, Any] = {"read_only": False}  # set by webui.make_handler; read by page()
 
 _FAVICON = ("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' "
@@ -29,10 +29,10 @@ _LOGO = ("<svg width='28' height='28' viewBox='0 0 32 32' aria-hidden='true'><re
          "<path d='M20 21l3 3 5-6' stroke='#34d399' stroke-width='2.6' fill='none' stroke-linecap='round' stroke-linejoin='round'/></svg>")
 
 CSS = """
-:root{--ink:#0f172a;--muted:#475569;--line:#e2e8f0;--bg:#f8fafc;--card:#fff;--brand:#1e3a8a;--brand2:#172554;--accent:#1d4ed8;
---ok:#047857;--okbg:#ecfdf5;--warn:#92400e;--warnbg:#fffbeb;--bad:#b91c1c;--badbg:#fef2f2;--chip:#eef2ff;--code:#f1f5f9;--bar:#e2e8f0}
-@media (prefers-color-scheme:dark){:root{--ink:#e5e7eb;--muted:#a3adbd;--line:#273044;--bg:#0b1220;--card:#111a2e;--brand:#172554;--brand2:#0b1220;
---accent:#93c5fd;--ok:#6ee7b7;--okbg:#06281d;--warn:#fcd34d;--warnbg:#2b1d05;--bad:#fca5a5;--badbg:#2d1010;--chip:#1b2547;--code:#1a2338;--bar:#273044}}
+:root{--ink:#0f172a;--muted:#475569;--line:#e3e6f5;--bg:#f5f6ff;--card:#fff;--brand:#4338ca;--brand2:#7c3aed;--accent:#4f46e5;
+--ok:#047857;--okbg:#ecfdf5;--warn:#92400e;--warnbg:#fffbeb;--bad:#b91c1c;--badbg:#fef2f2;--chip:#eef0ff;--code:#f1f3fb;--bar:#e3e6f5;--teal:#0d9488;--pink:#db2777;--amber:#d97706}
+@media (prefers-color-scheme:dark){:root{--ink:#e5e7eb;--muted:#a3adbd;--line:#2b2856;--bg:#0c0a1f;--card:#15132e;--brand:#4338ca;--brand2:#7c3aed;
+--accent:#a5b4fc;--ok:#6ee7b7;--okbg:#06281d;--warn:#fcd34d;--warnbg:#2b1d05;--bad:#fca5a5;--badbg:#2d1010;--chip:#221f4a;--code:#1b1938;--bar:#2b2856;--teal:#2dd4bf;--pink:#f472b6;--amber:#fbbf24}}
 *{box-sizing:border-box}html{-webkit-text-size-adjust:100%}
 body{margin:0;font:15px/1.6 system-ui,-apple-system,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;color:var(--ink);background:var(--bg)}
 a{color:var(--accent);text-underline-offset:2px}a:focus-visible,button:focus-visible,select:focus-visible,input:focus-visible,summary:focus-visible{outline:3px solid #f59e0b;outline-offset:2px;border-radius:4px}
@@ -95,6 +95,31 @@ div.chartwrap{overflow-x:auto}svg.chart text{font:12px system-ui,sans-serif;fill
 @media (max-width:600px){h1{font-size:23px}nav.main{margin-left:0}.tile .big{font-size:26px}}
 @media (prefers-reduced-motion:reduce){.grid .card{transition:none}.grid .card:hover{transform:none}}
 @media print{header.top,.banner,footer,.skip,form.filters{display:none}body{background:#fff;color:#000}main{padding:0}.card{break-inside:avoid}}
+/* v2 theme: richer colour, depth, hierarchy */
+body{background:var(--bg);background-image:radial-gradient(900px 420px at 85% -80px,rgba(124,58,237,.16),transparent 70%),radial-gradient(700px 360px at -10% 120px,rgba(14,165,233,.12),transparent 70%);background-repeat:no-repeat}
+header.top{background:linear-gradient(120deg,#312e81,#5b21b6 60%,#0e7490);box-shadow:0 2px 14px rgba(49,46,129,.35)}
+.hero{position:relative;overflow:hidden;background:linear-gradient(125deg,#3730a3 0%,#6d28d9 55%,#0891b2 130%);box-shadow:0 18px 44px rgba(79,70,229,.30)}
+.hero:before{content:'';position:absolute;right:-90px;top:-90px;width:340px;height:340px;border-radius:50%;background:radial-gradient(circle,rgba(255,255,255,.22),transparent 68%)}
+.hero:after{content:'';position:absolute;left:38%;bottom:-140px;width:420px;height:300px;border-radius:50%;background:radial-gradient(circle,rgba(45,212,191,.28),transparent 70%)}
+.hero>*{position:relative;z-index:1}
+.hero h1{font-size:38px;line-height:1.15}
+.hero .lead{color:#e6e9ff}
+.hero .btn{background:#fff;color:#4338ca;box-shadow:0 4px 14px rgba(0,0,0,.18)}.hero .btn:hover{transform:translateY(-1px)}
+.byline{background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.22);border-radius:14px;padding:10px 16px;width:fit-content;max-width:100%;backdrop-filter:blur(6px)}
+.avatar{background:linear-gradient(135deg,#2dd4bf,#818cf8);border:0;color:#0f172a;box-shadow:0 2px 8px rgba(0,0,0,.25)}
+h2{position:relative;padding-left:14px}h2:before{content:'';position:absolute;left:0;top:.2em;bottom:.2em;width:5px;border-radius:4px;background:linear-gradient(180deg,#6366f1,#14b8a6)}
+.card{border-radius:16px;box-shadow:0 2px 10px rgba(79,70,229,.07)}
+.grid .card{border-top:4px solid var(--accent)}
+.grid.g4 .card:nth-child(1){border-top-color:#6366f1}.grid.g4 .card:nth-child(2){border-top-color:#a855f7}.grid.g4 .card:nth-child(3){border-top-color:#14b8a6}.grid.g4 .card:nth-child(4){border-top-color:#f59e0b}
+.tile .big{background:linear-gradient(90deg,#6366f1,#14b8a6);-webkit-background-clip:text;background-clip:text;color:transparent;font-size:38px}
+.tile .big s{-webkit-text-fill-color:var(--muted)}
+.banner{background:linear-gradient(90deg,rgba(245,158,11,.16),rgba(245,158,11,.06))}
+.chips li{background:linear-gradient(135deg,rgba(99,102,241,.16),rgba(20,184,166,.16));border:1px solid var(--line)}
+.btn,button{background:linear-gradient(135deg,#4f46e5,#7c3aed)}button.alt,.btn.alt{background:var(--chip);color:var(--accent)}
+.steps li:before{background:linear-gradient(135deg,#6366f1,#14b8a6)}
+.facts li{border-left-color:#14b8a6}
+.callout{border-left-color:#14b8a6}
+footer{border-top:1px solid var(--line)}
 """
 
 _NAV = [("/", "Overview"), ("/history", "History"), ("/results", "Reproducibility"), ("/lab", "Simulation lab"), ("/new", "Run investigation")]
@@ -275,7 +300,7 @@ def overview_page(data: list[dict]) -> bytes:
         "<h1>Make an AI troubleshooting agent prove it has enough evidence before it answers.</h1>"
         "<p class='lead'>NetWing sits outside the language model. It writes every test the agent runs into a numbered evidence ledger and only accepts a "
         "“fault found” answer once a failure has been reproduced and the connectivity, DNS and port areas have all been checked.</p>"
-        f"<div class='byline'><div class='avatar' aria-hidden='true'>TM</div><div><b>{e(AUTHOR)}</b><span>B.Tech 3rd year, AI&amp;DS · VIT-AP · Guide: {e(GUIDE)}</span></div></div>"
+        f"<div class='byline'><div class='avatar' aria-hidden='true'>TM</div><div><b>{e(AUTHOR)}</b><span>B.Tech 3rd year, AI&amp;DS · IIIT Raichur · Guide: {e(GUIDE)}</span></div></div>"
         "<p><a class='btn' href='/history'>Browse recorded investigations</a> <a class='btn alt' href='/results'>Check the numbers</a> "
         f"<a class='btn alt' href='{REPO_URL}'>Source on GitHub</a></p></section>"
         + (f"<h2>Headline results</h2><div class='grid g4'>{tiles}</div>" if tiles else
@@ -286,7 +311,7 @@ def overview_page(data: list[dict]) -> bytes:
         "<p>LLM agents that troubleshoot networks tend to “find” a fault on a network that is actually healthy, and keep testing long after they have enough evidence. "
         "NetWing is a transparent rule engine placed between the agent and its conclusion. It numbers every test result, accepts a fault only when it is reproduced "
         "and the connectivity, DNS and port areas have all been checked, and stops the run when the evidence is sufficient or the 12-test budget is spent.</p>"
-        "<p>It was built and tested as a Computer Networks project by " + e(AUTHOR) + " (B.Tech 3rd year, AI&amp;DS, VIT-AP) under the guidance of " + e(GUIDE) + ": a simulator for most experiments, real Linux network namespaces for the easy suite, "
+        "<p>It was built and tested as a Computer Networks project by " + e(AUTHOR) + " (B.Tech 3rd year, AI&amp;DS, IIIT Raichur) under the guidance of " + e(GUIDE) + ": a simulator for most experiments, real Linux network namespaces for the easy suite, "
         "frozen pre-registered test suites, and every documented number re-derived from the raw logs.</p>"
         "<ul class='chips'><li>Python</li><li>Claude Haiku 5.5</li><li>Linux network namespaces</li><li>Reproducible logs</li><li>Frozen suites</li></ul></div>"
         "<ul class='facts'><li><b>9 rules</b>decide when evidence is enough</li><li><b>12 tests</b>maximum per investigation</li>"
