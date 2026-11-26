@@ -124,5 +124,113 @@
   "metric": "extra",
   "k": 1,
   "n": 48
+ },
+ {
+  "id": "fresh6.tier.multi_exact",
+  "doc": "docs/research/19-cover-areas-tier-fresh6-results.md",
+  "file": "results/fresh6_tier.jsonl",
+  "invocation": 0,
+  "metric": "multi_exact",
+  "k": 16,
+  "n": 60
+ },
+ {
+  "id": "fresh6.tier.healthy_ok",
+  "doc": "docs/research/19-cover-areas-tier-fresh6-results.md",
+  "file": "results/fresh6_tier.jsonl",
+  "invocation": 0,
+  "metric": "healthy_ok",
+  "k": 15,
+  "n": 15
+ },
+ {
+  "id": "fresh6.tier.false_fault",
+  "doc": "docs/research/19-cover-areas-tier-fresh6-results.md",
+  "file": "results/fresh6_tier.jsonl",
+  "invocation": 0,
+  "metric": "false_fault",
+  "k": 0,
+  "n": 15
+ },
+ {
+  "id": "fresh6.tier.no_answer",
+  "doc": "docs/research/19-cover-areas-tier-fresh6-results.md",
+  "file": "results/fresh6_tier.jsonl",
+  "invocation": 0,
+  "metric": "no_answer",
+  "k": 0,
+  "n": 105
+ },
+ {
+  "id": "fresh6.tier.exact",
+  "doc": "docs/research/19-cover-areas-tier-fresh6-results.md",
+  "file": "results/fresh6_tier.jsonl",
+  "invocation": 0,
+  "metric": "exact",
+  "k": 61,
+  "n": 105
+ },
+ {
+  "id": "fresh6.tier.tests",
+  "doc": "docs/research/19-cover-areas-tier-fresh6-results.md",
+  "file": "results/fresh6_tier.jsonl",
+  "invocation": 0,
+  "metric": "tests",
+  "mean": 7.3,
+  "digits": 2
+ },
+ {
+  "id": "fresh6.tier_cover.multi_exact",
+  "doc": "docs/research/19-cover-areas-tier-fresh6-results.md",
+  "file": "results/fresh6_tier_cover.jsonl",
+  "invocation": 0,
+  "metric": "multi_exact",
+  "k": 59,
+  "n": 60
+ },
+ {
+  "id": "fresh6.tier_cover.healthy_ok",
+  "doc": "docs/research/19-cover-areas-tier-fresh6-results.md",
+  "file": "results/fresh6_tier_cover.jsonl",
+  "invocation": 0,
+  "metric": "healthy_ok",
+  "k": 15,
+  "n": 15
+ },
+ {
+  "id": "fresh6.tier_cover.false_fault",
+  "doc": "docs/research/19-cover-areas-tier-fresh6-results.md",
+  "file": "results/fresh6_tier_cover.jsonl",
+  "invocation": 0,
+  "metric": "false_fault",
+  "k": 0,
+  "n": 15
+ },
+ {
+  "id": "fresh6.tier_cover.no_answer",
+  "doc": "docs/research/19-cover-areas-tier-fresh6-results.md",
+  "file": "results/fresh6_tier_cover.jsonl",
+  "invocation": 0,
+  "metric": "no_answer",
+  "k": 0,
+  "n": 105
+ },
+ {
+  "id": "fresh6.tier_cover.exact",
+  "doc": "docs/research/19-cover-areas-tier-fresh6-results.md",
+  "file": "results/fresh6_tier_cover.jsonl",
+  "invocation": 0,
+  "metric": "exact",
+  "k": 104,
+  "n": 105
+ },
+ {
+  "id": "fresh6.tier_cover.tests",
+  "doc": "docs/research/19-cover-areas-tier-fresh6-results.md",
+  "file": "results/fresh6_tier_cover.jsonl",
+  "invocation": 0,
+  "metric": "tests",
+  "mean": 8.32,
+  "digits": 2
  }
 ]

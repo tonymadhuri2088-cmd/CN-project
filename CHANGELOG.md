@@ -1,6 +1,7 @@
 # Changelog
 
 ## Unreleased
+- fresh6 (pre-registered, run once): `--cover-areas` with `--tier-claims` raises both-faults-confirmed from 27% to 98% on 60 double-fault runs (M, H, C met); stays opt-in. See `docs/research/19`.
 - fresh5 results (`docs/research/15-...`): `--cover-areas` meets no-harm (H) and cost (C) but not the +15-point completeness criterion (M; baseline already 98%, ceiling). Exploratory: both faulty areas reproduced in 60/60 double-fault runs vs 16/60. Stays opt-in.
 - Opt-in `--cover-areas` (layer-coverage stopping rule): do not stop on a fault while another area has a failure seen only once. Frozen suite `fresh5` and pre-registration (`docs/research/13-...`), 13 new tests; not yet run with a model. Pre-registered cross-model check of fresh3 on Sonnet 5.5 (`docs/research/14-...`), with a corrected cost estimate (about $4.5, not $0.50).
 - fresh4 results (`docs/research/12-fresh4-results.md`): `--mask-reproduced` matches the default on port-blip and route-only runs (criteria B and R met; S not informative); `--mask-aware` v1 reproduced its blip defect (60% no-answer).
