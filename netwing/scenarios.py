@@ -241,7 +241,24 @@ for _id, (_ticket, _truth, _faults, _also, _topo) in _FRESH5.items():
     _SCENARIOS[_id] = Scenario(id=_id, ticket=_ticket, truth=_truth, faults=_faults, also=_also, **_kw)
 FRESH5_IDS = list(_FRESH5)
 
-_EXTRA = set(LAB_IDS) | set(FRESH5_IDS) | set(FRESH4_IDS) | set(FRESH3_IDS) | set(FRESH2_IDS) | set(FRESH_IDS) | set(HELDOUT_IDS) | set(HARD_IDS) | set(FLAKY_IDS) | set(MULTI_IDS) | set(CAMPUS_IDS)
+# fresh6 (simulator only): written BEFORE `--cover-areas` is evaluated together with `--tier-claims` (confirmation scoring), because
+# fresh5 scored only the final answer and saturated. Four double-fault scenarios in combinations no earlier suite uses, two single-fault
+# controls and one healthy control. Frozen: run once.
+_FRESH6 = {
+    "fx6_campus_noisy_port_dns": (NOISY_TICKET, "port_blocked", frozenset({"noise", "port", "dns"}), ("dns_failure",), CAMPUS),
+    "fx6_campus_noisy_route_dns": (NOISY_TICKET, "route_failure", frozenset({"noise", "route", "dns"}), ("dns_failure",), CAMPUS),
+    "fx6_flaky_campus_dns_port": (FLAKY_TICKET, "dns_failure", frozenset({"dns", "port"}), ("port_blocked",), CAMPUS),
+    "fx6_blip_route_dns": (TICKET, "route_failure", frozenset({"blip", "route", "dns"}), ("dns_failure",), None),
+    "fx6_flaky_campus_noisy_port": (FLAKY_TICKET, "port_blocked", frozenset({"noise", "port"}), (), CAMPUS),
+    "fx6_flaky_noisy_dns": (FLAKY_TICKET, "dns_failure", frozenset({"dns", "noise"}), (), None),
+    "fx6_flaky_campus_noisy_healthy": (FLAKY_TICKET, "healthy", frozenset({"noise"}), (), CAMPUS),
+}
+for _id, (_ticket, _truth, _faults, _also, _topo) in _FRESH6.items():
+    _kw = {"topology": _topo} if _topo is not None else {}
+    _SCENARIOS[_id] = Scenario(id=_id, ticket=_ticket, truth=_truth, faults=_faults, also=_also, **_kw)
+FRESH6_IDS = list(_FRESH6)
+
+_EXTRA = set(LAB_IDS) | set(FRESH6_IDS) | set(FRESH5_IDS) | set(FRESH4_IDS) | set(FRESH3_IDS) | set(FRESH2_IDS) | set(FRESH_IDS) | set(HELDOUT_IDS) | set(HARD_IDS) | set(FLAKY_IDS) | set(MULTI_IDS) | set(CAMPUS_IDS)
 ALL_IDS = [i for i in _SCENARIOS if i not in _EXTRA]  # default suite: the easy four
 
 
