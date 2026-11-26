@@ -1,1 +1,128 @@
-[]
+[
+ {
+  "id": "fresh5.off.healthy_ok",
+  "doc": "docs/research/15-cover-areas-fresh5-results.md",
+  "file": "results/fresh5_off.jsonl",
+  "invocation": 0,
+  "metric": "healthy_ok",
+  "k": 15,
+  "n": 15
+ },
+ {
+  "id": "fresh5.off.false_fault",
+  "doc": "docs/research/15-cover-areas-fresh5-results.md",
+  "file": "results/fresh5_off.jsonl",
+  "invocation": 0,
+  "metric": "false_fault",
+  "k": 0,
+  "n": 15
+ },
+ {
+  "id": "fresh5.off.no_answer",
+  "doc": "docs/research/15-cover-areas-fresh5-results.md",
+  "file": "results/fresh5_off.jsonl",
+  "invocation": 0,
+  "metric": "no_answer",
+  "k": 1,
+  "n": 105
+ },
+ {
+  "id": "fresh5.off.multi_exact",
+  "doc": "docs/research/15-cover-areas-fresh5-results.md",
+  "file": "results/fresh5_off.jsonl",
+  "invocation": 0,
+  "metric": "multi_exact",
+  "k": 59,
+  "n": 60
+ },
+ {
+  "id": "fresh5.off.tests",
+  "doc": "docs/research/15-cover-areas-fresh5-results.md",
+  "file": "results/fresh5_off.jsonl",
+  "invocation": 0,
+  "metric": "tests",
+  "mean": 6.57,
+  "digits": 2
+ },
+ {
+  "id": "fresh5.cover.healthy_ok",
+  "doc": "docs/research/15-cover-areas-fresh5-results.md",
+  "file": "results/fresh5_cover.jsonl",
+  "invocation": 1,
+  "metric": "healthy_ok",
+  "k": 15,
+  "n": 15
+ },
+ {
+  "id": "fresh5.cover.false_fault",
+  "doc": "docs/research/15-cover-areas-fresh5-results.md",
+  "file": "results/fresh5_cover.jsonl",
+  "invocation": 1,
+  "metric": "false_fault",
+  "k": 0,
+  "n": 15
+ },
+ {
+  "id": "fresh5.cover.no_answer",
+  "doc": "docs/research/15-cover-areas-fresh5-results.md",
+  "file": "results/fresh5_cover.jsonl",
+  "invocation": 1,
+  "metric": "no_answer",
+  "k": 0,
+  "n": 105
+ },
+ {
+  "id": "fresh5.cover.multi_exact",
+  "doc": "docs/research/15-cover-areas-fresh5-results.md",
+  "file": "results/fresh5_cover.jsonl",
+  "invocation": 1,
+  "metric": "multi_exact",
+  "k": 59,
+  "n": 60
+ },
+ {
+  "id": "fresh5.cover.tests",
+  "doc": "docs/research/15-cover-areas-fresh5-results.md",
+  "file": "results/fresh5_cover.jsonl",
+  "invocation": 1,
+  "metric": "tests",
+  "mean": 7.68,
+  "digits": 2
+ },
+ {
+  "id": "fresh3.sonnet.original.healthy_ok",
+  "doc": "docs/research/16-cross-model-fresh3-results.md",
+  "file": "results/fresh3_sonnet_original.jsonl",
+  "invocation": 0,
+  "metric": "healthy_ok",
+  "k": 8,
+  "n": 8
+ },
+ {
+  "id": "fresh3.sonnet.original.false_fault",
+  "doc": "docs/research/16-cross-model-fresh3-results.md",
+  "file": "results/fresh3_sonnet_original.jsonl",
+  "invocation": 0,
+  "metric": "false_fault",
+  "k": 0,
+  "n": 8
+ },
+ {
+  "id": "fresh3.sonnet.original.multi_exact",
+  "doc": "docs/research/16-cross-model-fresh3-results.md",
+  "file": "results/fresh3_sonnet_original.jsonl",
+  "invocation": 0,
+  "metric": "multi_exact",
+  "k": 24,
+  "n": 32
+ },
+ {
+  "id": "fresh3.sonnet.original.extra",
+  "doc": "docs/research/16-cross-model-fresh3-results.md",
+  "file": "results/fresh3_sonnet_original.jsonl",
+  "invocation": 0,
+  "metric": "extra",
+  "k": 1,
+  "n": 48
+ }
+]
