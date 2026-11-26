@@ -10,7 +10,7 @@
 
 **An evidence-sufficiency controller for LLM network-diagnosis agents.**
 
-*A Computer Networks project by **Tony Madhuri** (B.Tech 3rd year, AI&DS, VIT-AP), guided by **Mehbub Alam**.*
+*A Computer Networks project by **Tony Madhuri** (B.Tech 3rd year, AI&DS, IIIT Raichur), guided by **Dr. Mehbub Alam**.*
 **Live read-only demo: <https://netwing-demo.onrender.com>** (the free host sleeps when idle; the first visit can take about a minute).
 It answers one question: *does the agent have enough evidence to conclude, or is it about to invent a fault?*
 
